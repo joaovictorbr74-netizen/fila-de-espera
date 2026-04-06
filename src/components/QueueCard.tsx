@@ -1,6 +1,6 @@
 import { QueueClient, getWaitingTime, formatTime } from "@/lib/queue-store";
 import { Button } from "@/components/ui/button";
-import { Clock, Users, X, Bell, Check } from "lucide-react";
+import { Clock, Users, X, Bell, Check, MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface QueueCardProps {
@@ -41,9 +41,9 @@ export default function QueueCard({ client, position, onCall, onSeat, onRemove }
   }, [client.arrivalTime]);
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-4 transition-all hover:border-primary/30">
+    <div className={`bg-card border border-border rounded-2xl p-5 flex items-center gap-4 transition-all shadow-md hover:shadow-lg hover:border-primary/30 ${client.status === "called" ? "ring-2 ring-status-called/40" : ""}`}>
       {/* Position */}
-      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-lg font-bold text-muted-foreground">
+      <div className="flex-shrink-0 w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-xl font-bold text-muted-foreground shadow-inner">
         {position}
       </div>
 
@@ -51,14 +51,6 @@ export default function QueueCard({ client, position, onCall, onSeat, onRemove }
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-lg font-semibold text-foreground truncate">{client.name}</span>
-          {client.tags.map((tag) => (
-            <span
-              key={tag}
-              className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground uppercase tracking-wider"
-            >
-              {tag}
-            </span>
-          ))}
         </div>
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <span className="flex items-center gap-1">
@@ -69,6 +61,12 @@ export default function QueueCard({ client, position, onCall, onSeat, onRemove }
           </span>
           <span className="font-medium text-foreground">⏱ {waitTime}</span>
         </div>
+        {client.notes && (
+          <div className="mt-2 flex items-start gap-1.5 text-sm text-muted-foreground">
+            <MessageSquare className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+            <span className="italic truncate">{client.notes}</span>
+          </div>
+        )}
       </div>
 
       {/* Status Badge */}
@@ -82,7 +80,7 @@ export default function QueueCard({ client, position, onCall, onSeat, onRemove }
         {client.status === "waiting" && (
           <Button
             onClick={() => onCall(client.id)}
-            className="h-12 px-5 text-base font-bold bg-status-called hover:bg-status-called/80 text-background"
+            className="h-12 px-5 text-base font-bold bg-status-called hover:bg-status-called/80 text-background shadow-md"
           >
             <Bell className="w-5 h-5 mr-1" />
             CHAMAR
@@ -91,7 +89,7 @@ export default function QueueCard({ client, position, onCall, onSeat, onRemove }
         {client.status === "called" && (
           <Button
             onClick={() => onSeat(client.id)}
-            className="h-12 px-5 text-base font-bold bg-status-seated hover:bg-status-seated/80 text-background"
+            className="h-12 px-5 text-base font-bold bg-status-seated hover:bg-status-seated/80 text-background shadow-md"
           >
             <Check className="w-5 h-5 mr-1" />
             SENTOU

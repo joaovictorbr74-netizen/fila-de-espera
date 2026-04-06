@@ -3,7 +3,7 @@ import { QueueClient, loadQueue, saveQueue } from "@/lib/queue-store";
 import QueueForm from "@/components/QueueForm";
 import QueueList from "@/components/QueueList";
 import { toast } from "sonner";
-import { UtensilsCrossed } from "lucide-react";
+import { Pizza } from "lucide-react";
 
 const Index = () => {
   const [queue, setQueue] = useState<QueueClient[]>(loadQueue);
@@ -40,14 +40,19 @@ const Index = () => {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
-        <div className="flex items-center gap-3">
-          <UtensilsCrossed className="w-8 h-8 text-primary" />
-          <h1 className="font-display text-3xl text-foreground">
-            Fila <span className="text-primary">Premium</span>
-          </h1>
+      <header className="flex items-center justify-between px-8 py-5 border-b border-border bg-card shadow-lg">
+        <div className="flex items-center gap-4">
+          <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center">
+            <Pizza className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h1 className="font-display text-3xl text-foreground tracking-tight">
+              Grano <span className="text-primary">Pizza & Bar</span>
+            </h1>
+            <p className="text-xs text-muted-foreground tracking-widest uppercase">Fila de Espera</p>
+          </div>
         </div>
-        <span className="text-muted-foreground text-sm">
+        <span className="text-muted-foreground text-sm bg-secondary px-4 py-2 rounded-full">
           {new Date().toLocaleDateString("pt-BR", {
             weekday: "long",
             day: "numeric",
@@ -59,12 +64,12 @@ const Index = () => {
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left - Form */}
-        <div className="w-[380px] flex-shrink-0 border-r border-border p-6 overflow-y-auto">
+        <div className="w-[400px] flex-shrink-0 border-r border-border p-7 overflow-y-auto bg-card/50">
           <QueueForm onAdd={addClient} />
         </div>
 
         {/* Right - Queue */}
-        <div className="flex-1 p-6 overflow-hidden">
+        <div className="flex-1 p-7 overflow-hidden">
           <QueueList
             queue={queue}
             onCall={callClient}

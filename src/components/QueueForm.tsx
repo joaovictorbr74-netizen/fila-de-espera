@@ -1,31 +1,20 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ClientTag, QueueClient } from "@/lib/queue-store";
-import { Baby, Heart, Accessibility, UserPlus, Users, Phone, User } from "lucide-react";
+import { QueueClient } from "@/lib/queue-store";
+import { UserPlus, Users, Phone, User, MessageSquare } from "lucide-react";
 
 interface QueueFormProps {
   onAdd: (client: QueueClient) => void;
 }
 
-const tags: { value: ClientTag; label: string; icon: React.ReactNode }[] = [
-  { value: "criança", label: "Criança", icon: <Baby className="w-5 h-5" /> },
-  { value: "idoso", label: "Idoso", icon: <Heart className="w-5 h-5" /> },
-  { value: "pcd", label: "PCD", icon: <Accessibility className="w-5 h-5" /> },
-];
-
 export default function QueueForm({ onAdd }: QueueFormProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [partySize, setPartySize] = useState(2);
-  const [selectedTags, setSelectedTags] = useState<ClientTag[]>([]);
-
-  const toggleTag = (tag: ClientTag) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-  };
+  const [notes, setNotes] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,14 +26,14 @@ export default function QueueForm({ onAdd }: QueueFormProps) {
       phone: phone.trim(),
       partySize,
       arrivalTime: Date.now(),
-      tags: selectedTags,
+      notes: notes.trim(),
       status: "waiting",
     });
 
     setName("");
     setPhone("");
     setPartySize(2);
-    setSelectedTags([]);
+    setNotes("");
   };
 
   return (
@@ -105,30 +94,20 @@ export default function QueueForm({ onAdd }: QueueFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label className="text-base text-foreground">Observações</Label>
-        <div className="flex gap-2 flex-wrap">
-          {tags.map((tag) => (
-            <Button
-              key={tag.value}
-              type="button"
-              variant={selectedTags.includes(tag.value) ? "default" : "outline"}
-              className={`h-12 px-5 text-base gap-2 border-border ${
-                selectedTags.includes(tag.value)
-                  ? "bg-primary text-primary-foreground"
-                  : ""
-              }`}
-              onClick={() => toggleTag(tag.value)}
-            >
-              {tag.icon}
-              {tag.label}
-            </Button>
-          ))}
-        </div>
+        <Label className="text-base text-foreground flex items-center gap-2">
+          <MessageSquare className="w-4 h-4 text-muted-foreground" /> Observações
+        </Label>
+        <Textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Ex: Área externa, aniversário, cliente com bebê..."
+          className="min-h-[100px] text-base bg-secondary border-border placeholder:text-muted-foreground resize-none"
+        />
       </div>
 
       <Button
         type="submit"
-        className="h-16 text-xl font-semibold mt-auto bg-primary hover:bg-primary/90 text-primary-foreground"
+        className="h-16 text-xl font-semibold mt-auto bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
       >
         <UserPlus className="w-6 h-6 mr-2" />
         ADICIONAR À FILA
