@@ -1,14 +1,12 @@
 export type ClientStatus = "waiting" | "called" | "seated";
 
-export type ClientTag = "criança" | "idoso" | "pcd";
-
 export interface QueueClient {
   id: string;
   name: string;
   phone: string;
   partySize: number;
-  arrivalTime: number; // timestamp
-  tags: ClientTag[];
+  arrivalTime: number;
+  notes: string;
   status: ClientStatus;
 }
 
