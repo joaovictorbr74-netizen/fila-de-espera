@@ -47,7 +47,7 @@ const Index = () => {
       )
     );
 
-    toast.success("Cliente atualizado!");
+    toast.success("Cliente atualizado com sucesso");
   },
   []
 );

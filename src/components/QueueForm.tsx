@@ -3,7 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { QueueClient } from "@/lib/queue-store";
+import {
+  QueueClient,
+  maskPhone,
+  isValidPhone,
+  findDuplicatePhone,
+  formatTime,
+} from "@/lib/queue-store";
 import { UserPlus, Users, Phone, User, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
@@ -19,45 +25,36 @@ export default function QueueForm({ onAdd, queue }: QueueFormProps) {
   const [notes, setNotes] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!name.trim()) {
-    alert("O nome do cliente é obrigatório.");
-    return;
-  }
+    if (!name.trim()) {
+      toast.error("O nome do cliente é obrigatório.");
+      return;
+    }
 
-  if (!phone.trim()) {
-    alert("O telefone do cliente é obrigatório.");
-    return;
-  }
+    if (!phone.trim()) {
+      toast.error("O telefone do cliente é obrigatório.");
+      return;
+    }
 
-  const telefoneLimpo = phone.replace(/\D/g, "");
+    if (!isValidPhone(phone)) {
+      toast.error("Telefone inválido");
+      return;
+    }
 
-if (telefoneLimpo.length !== 11) {
-  toast.error("Telefone inválido");
-  return;
-}
+    const clienteExistente = findDuplicatePhone(queue, phone);
 
-const clienteExistente = queue.find(
-  (client) =>
-    client.phone.replace(/\D/g, "") === telefoneLimpo
-);
+    if (clienteExistente) {
+      toast.error("Telefone já cadastrado na fila", {
+        description: `${clienteExistente.name} entrou às ${formatTime(
+          clienteExistente.arrivalTime
+        )}`,
+      });
 
-if (clienteExistente) {
-  toast.error("Telefone já cadastrado na fila", {
-    description: `${clienteExistente.name} entrou às ${new Date(
-      clienteExistente.arrivalTime
-    ).toLocaleTimeString("pt-BR", {
-      hour: "2-digit",
-      minute: "2-digit",
-    })}`,
-  });
+      return;
+    }
 
-  return;
-}
-
-  onAdd({
-      
+    onAdd({
       id: crypto.randomUUID(),
       name: name.trim(),
       phone: phone.trim(),
@@ -95,30 +92,13 @@ if (clienteExistente) {
           <Phone className="w-4 h-4 text-muted-foreground" /> Telefone
         </Label>
         <Input
-  value={phone}
-  maxLength={15}
- onChange={(e) => {
-  let value = e.target.value.replace(/\D/g, "");
-
-  value = value.slice(0, 11);
-
-  if (value.length <= 2) {
-    value = value;
-  } else if (value.length <= 7) {
-    value = `(${value.slice(0, 2)}) ${value.slice(2)}`;
-  } else {
-    value = `(${value.slice(0, 2)}) ${value.slice(
-      2,
-      7
-    )}-${value.slice(7)}`;
-  }
-
-  setPhone(value);
-}}
-  placeholder="(11) 98765-4321"
-  className="h-14 text-lg bg-secondary border-border placeholder:text-muted-foreground"
-  type="tel"
-      />
+          value={phone}
+          maxLength={15}
+          onChange={(e) => setPhone(maskPhone(e.target.value))}
+          placeholder="(11) 98765-4321"
+          className="h-14 text-lg bg-secondary border-border placeholder:text-muted-foreground"
+          type="tel"
+        />
       </div>
 
       <div className="space-y-2">

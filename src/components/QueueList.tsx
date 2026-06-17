@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { QueueClient } from "@/lib/queue-store";
+import { QueueClient, getWaitingTime } from "@/lib/queue-store";
 import QueueCard from "./QueueCard";
-import { Users } from "lucide-react";
+import { Users, PartyPopper, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 interface QueueListProps {
@@ -28,6 +28,11 @@ export default function QueueList({
     0
   );
 
+  const longestWaitMinutes = activeQueue.reduce((max, c) => {
+    const minutes = Math.floor((Date.now() - c.arrivalTime) / 60000);
+    return Math.max(max, minutes);
+  }, 0);
+
   const filteredQueue = activeQueue.filter((client) => {
     const searchTerm = search.toLowerCase();
 
@@ -39,18 +44,25 @@ export default function QueueList({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h2 className="font-display text-2xl text-primary">
           Fila de Espera
         </h2>
 
-        <div className="flex items-center gap-4 text-muted-foreground text-base">
+        <div className="flex items-center gap-4 text-muted-foreground text-base flex-wrap">
           <span className="flex items-center gap-1.5">
             <Users className="w-5 h-5" />
-            {activeQueue.length} na fila
+            {activeQueue.length} {activeQueue.length === 1 ? "cliente" : "clientes"}
           </span>
 
-          <span>• {totalPeople} pessoas</span>
+          <span>• {totalPeople} {totalPeople === 1 ? "pessoa" : "pessoas"}</span>
+
+          {activeQueue.length > 0 && (
+            <span className="flex items-center gap-1.5">
+              <Clock className="w-4 h-4" />
+              Maior espera: {longestWaitMinutes} min
+            </span>
+          )}
         </div>
       </div>
 
@@ -63,10 +75,20 @@ export default function QueueList({
       </div>
 
       {filteredQueue.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center text-muted-foreground text-xl">
-          {search
-            ? "Nenhum cliente encontrado"
-            : "Nenhum cliente na fila"}
+        <div className="flex-1 flex flex-col items-center justify-center text-center gap-2">
+          {search ? (
+            <p className="text-muted-foreground text-xl">Nenhum cliente encontrado</p>
+          ) : (
+            <>
+              <PartyPopper className="w-10 h-10 text-primary mb-1" />
+              <p className="text-foreground text-xl font-semibold">
+                Nenhum cliente aguardando
+              </p>
+              <p className="text-muted-foreground text-base">
+                A fila está vazia no momento.
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto space-y-3 pr-1">
@@ -75,6 +97,7 @@ export default function QueueList({
               key={client.id}
               client={client}
               position={index + 1}
+              queue={queue}
               onCall={onCall}
               onSeat={onSeat}
               onRemove={onRemove}
