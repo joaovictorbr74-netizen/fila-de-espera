@@ -37,6 +37,20 @@ const Index = () => {
     toast("Cliente removido da fila");
   }, []);
 
+  const updateClient = useCallback(
+  (id: string, updatedData: Partial<QueueClient>) => {
+    setQueue((prev) =>
+      prev.map((client) =>
+        client.id === id
+          ? { ...client, ...updatedData }
+          : client
+      )
+    );
+
+    toast.success("Cliente atualizado!");
+  },
+  []
+);
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Header */}
@@ -65,7 +79,9 @@ const Index = () => {
       <div className="flex-1 flex overflow-hidden">
         {/* Left - Form */}
         <div className="w-[400px] flex-shrink-0 border-r border-border p-7 overflow-y-auto bg-card/50">
-          <QueueForm onAdd={addClient} />
+          <QueueForm 
+          onAdd={addClient} 
+          queue={queue} />
         </div>
 
         {/* Right - Queue */}
@@ -75,6 +91,7 @@ const Index = () => {
             onCall={callClient}
             onSeat={seatClient}
             onRemove={removeClient}
+            onUpdate={updateClient}
           />
         </div>
       </div>
