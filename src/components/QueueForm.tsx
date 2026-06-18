@@ -14,7 +14,7 @@ import { UserPlus, Users, Phone, User, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
 interface QueueFormProps {
-  onAdd: (client: QueueClient) => void;
+  onAdd: (client: Omit<QueueClient, "id">) => Promise<void> | void;
   queue: QueueClient[]; // Adicione a prop queue para verificar o número de pessoas na fila
 }
 
@@ -23,8 +23,9 @@ export default function QueueForm({ onAdd, queue }: QueueFormProps) {
   const [phone, setPhone] = useState("");
   const [partySize, setPartySize] = useState(2);
   const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name.trim()) {
@@ -54,20 +55,24 @@ export default function QueueForm({ onAdd, queue }: QueueFormProps) {
       return;
     }
 
-    onAdd({
-      id: crypto.randomUUID(),
-      name: name.trim(),
-      phone: phone.trim(),
-      partySize,
-      arrivalTime: Date.now(),
-      notes: notes.trim(),
-      status: "waiting",
-    });
+    setSubmitting(true);
+    try {
+      await onAdd({
+        name: name.trim(),
+        phone: phone.trim(),
+        partySize,
+        arrivalTime: Date.now(),
+        notes: notes.trim(),
+        status: "waiting",
+      });
 
-    setName("");
-    setPhone("");
-    setPartySize(2);
-    setNotes("");
+      setName("");
+      setPhone("");
+      setPartySize(2);
+      setNotes("");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -142,10 +147,11 @@ export default function QueueForm({ onAdd, queue }: QueueFormProps) {
 
       <Button
         type="submit"
-        className="h-16 text-xl font-semibold mt-auto bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
+        disabled={submitting}
+        className="h-16 text-xl font-semibold mt-auto bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 disabled:opacity-70"
       >
         <UserPlus className="w-6 h-6 mr-2" />
-        ADICIONAR À FILA
+        {submitting ? "ADICIONANDO..." : "ADICIONAR À FILA"}
       </Button>
     </form>
   );

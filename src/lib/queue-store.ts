@@ -10,21 +10,6 @@ export interface QueueClient {
   status: ClientStatus;
 }
 
-const STORAGE_KEY = "restaurant-queue";
-
-export function loadQueue(): QueueClient[] {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveQueue(queue: QueueClient[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
-}
-
 export function getWaitingTime(arrivalTime: number): string {
   const minutes = Math.floor((Date.now() - arrivalTime) / 60000);
   if (minutes < 1) return "Agora";

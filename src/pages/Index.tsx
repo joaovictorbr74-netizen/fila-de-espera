@@ -1,56 +1,141 @@
-import { useState, useCallback, useEffect } from "react";
-import { QueueClient, loadQueue, saveQueue } from "@/lib/queue-store";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { QueueClient } from "@/lib/queue-store";
+import {
+  fetchQueue,
+  insertClient,
+  updateClientRow,
+  deleteClientRow,
+  restoreClient,
+  subscribeToQueue,
+} from "@/lib/queue-api";
 import QueueForm from "@/components/QueueForm";
 import QueueList from "@/components/QueueList";
 import { toast } from "sonner";
-import { Pizza } from "lucide-react";
+import { Pizza, Loader2 } from "lucide-react";
 
 const Index = () => {
-  const [queue, setQueue] = useState<QueueClient[]>(loadQueue);
+  const [queue, setQueue] = useState<QueueClient[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
+  const reloadQueue = useCallback(async () => {
+    try {
+      const data = await fetchQueue();
+      setQueue(data);
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(
+        err instanceof Error ? err.message : "Erro ao carregar a fila."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Carrega a fila ao abrir a página e assina atualizações em tempo real,
+  // assim qualquer dispositivo (tablet, celular, outro computador) vê a
+  // mesma fila, sempre atualizada.
   useEffect(() => {
-    saveQueue(queue);
-  }, [queue]);
-
-  const addClient = useCallback((client: QueueClient) => {
-    setQueue((prev) => [...prev, client]);
-    toast.success(`${client.name} adicionado à fila!`);
-  }, []);
-
-  const callClient = useCallback((id: string) => {
-    setQueue((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: "called" as const } : c))
-    );
-    const client = queue.find((c) => c.id === id);
-    toast("📱 Mensagem enviada!", {
-      description: `"Sua mesa está pronta" → ${client?.name}`,
+    reloadQueue();
+    const unsubscribe = subscribeToQueue(() => {
+      reloadQueue();
     });
-  }, [queue]);
+    return unsubscribe;
+  }, [reloadQueue]);
 
-  const seatClient = useCallback((id: string) => {
-    setQueue((prev) => prev.filter((c) => c.id !== id));
-    toast.success("Cliente acomodado!");
+  const addClient = useCallback(
+    async (client: Omit<QueueClient, "id">) => {
+      try {
+        await insertClient(client);
+        toast.success(`${client.name} adicionado à fila!`);
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Erro ao adicionar cliente."
+        );
+      }
+    },
+    []
+  );
+
+  const callClient = useCallback(
+    async (id: string) => {
+      const client = queue.find((c) => c.id === id);
+      try {
+        await updateClientRow(id, { status: "called" });
+        toast("📱 Mensagem enviada!", {
+          description: `"Sua mesa está pronta" → ${client?.name}`,
+        });
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Erro ao chamar cliente."
+        );
+      }
+    },
+    [queue]
+  );
+
+  const seatClient = useCallback(async (id: string) => {
+    try {
+      await deleteClientRow(id);
+      toast.success("Cliente acomodado!");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Erro ao acomodar cliente."
+      );
+    }
   }, []);
 
-  const removeClient = useCallback((id: string) => {
-    setQueue((prev) => prev.filter((c) => c.id !== id));
-    toast("Cliente removido da fila");
-  }, []);
+  const removeClient = useCallback(
+    async (id: string) => {
+      const client = queue.find((c) => c.id === id);
+      if (!client) return;
+
+      try {
+        await deleteClientRow(id);
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Erro ao remover cliente."
+        );
+        return;
+      }
+
+      toast("Cliente removido da fila", {
+        description: client.name,
+        action: {
+          label: "Desfazer",
+          onClick: async () => {
+            try {
+              await restoreClient(client);
+              toast.success(`${client.name} voltou para a fila`);
+            } catch (err) {
+              toast.error(
+                err instanceof Error
+                  ? err.message
+                  : "Não foi possível desfazer."
+              );
+            }
+          },
+        },
+        duration: 6000,
+      });
+    },
+    [queue]
+  );
 
   const updateClient = useCallback(
-  (id: string, updatedData: Partial<QueueClient>) => {
-    setQueue((prev) =>
-      prev.map((client) =>
-        client.id === id
-          ? { ...client, ...updatedData }
-          : client
-      )
-    );
+    async (id: string, updatedData: Partial<QueueClient>) => {
+      try {
+        await updateClientRow(id, updatedData);
+        toast.success("Cliente atualizado com sucesso");
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Erro ao atualizar cliente."
+        );
+      }
+    },
+    []
+  );
 
-    toast.success("Cliente atualizado com sucesso");
-  },
-  []
-);
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Header */}
@@ -76,25 +161,40 @@ const Index = () => {
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left - Form */}
-        <div className="w-[400px] flex-shrink-0 border-r border-border p-7 overflow-y-auto bg-card/50">
-          <QueueForm 
-          onAdd={addClient} 
-          queue={queue} />
+      {loading ? (
+        <div className="flex-1 flex items-center justify-center gap-2 text-muted-foreground">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          Carregando fila...
         </div>
+      ) : loadError ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6">
+          <p className="text-destructive font-semibold">
+            Não foi possível carregar a fila
+          </p>
+          <p className="text-muted-foreground text-sm max-w-md">{loadError}</p>
+          <button onClick={reloadQueue} className="text-primary underline text-sm">
+            Tentar novamente
+          </button>
+        </div>
+      ) : (
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left - Form */}
+          <div className="w-[400px] flex-shrink-0 border-r border-border p-7 overflow-y-auto bg-card/50">
+            <QueueForm onAdd={addClient} queue={queue} />
+          </div>
 
-        {/* Right - Queue */}
-        <div className="flex-1 p-7 overflow-hidden">
-          <QueueList
-            queue={queue}
-            onCall={callClient}
-            onSeat={seatClient}
-            onRemove={removeClient}
-            onUpdate={updateClient}
-          />
+          {/* Right - Queue */}
+          <div className="flex-1 p-7 overflow-hidden">
+            <QueueList
+              queue={queue}
+              onCall={callClient}
+              onSeat={seatClient}
+              onRemove={removeClient}
+              onUpdate={updateClient}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
