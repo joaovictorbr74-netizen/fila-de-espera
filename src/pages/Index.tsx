@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { QueueClient } from "@/lib/queue-store";
 import {
   fetchQueue,
@@ -7,16 +7,22 @@ import {
   deleteClientRow,
   restoreClient,
   subscribeToQueue,
+  archiveSeatedClients,
 } from "@/lib/queue-api";
 import QueueForm from "@/components/QueueForm";
 import QueueList from "@/components/QueueList";
+import Login from "@/pages/Login";
 import { toast } from "sonner";
-import { Pizza, Loader2 } from "lucide-react";
+import { Pizza, Loader2, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const Index = () => {
   const [queue, setQueue] = useState<QueueClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [authenticated, setAuthenticated] = useState(
+    localStorage.getItem("queue-authenticated") === "true"
+  );
 
   const reloadQueue = useCallback(async () => {
     try {
@@ -32,16 +38,16 @@ const Index = () => {
     }
   }, []);
 
-  // Carrega a fila ao abrir a página e assina atualizações em tempo real,
-  // assim qualquer dispositivo (tablet, celular, outro computador) vê a
-  // mesma fila, sempre atualizada.
   useEffect(() => {
+    if (!authenticated) return;
+
     reloadQueue();
     const unsubscribe = subscribeToQueue(() => {
       reloadQueue();
     });
+
     return unsubscribe;
-  }, [reloadQueue]);
+  }, [authenticated, reloadQueue]);
 
   const addClient = useCallback(
     async (client: Omit<QueueClient, "id">) => {
@@ -60,9 +66,11 @@ const Index = () => {
   const callClient = useCallback(
     async (id: string) => {
       const client = queue.find((c) => c.id === id);
+
       try {
         await updateClientRow(id, { status: "called" });
-        toast("📱 Mensagem enviada!", {
+
+        toast("Mensagem enviada!", {
           description: `"Sua mesa está pronta" → ${client?.name}`,
         });
       } catch (err) {
@@ -75,22 +83,49 @@ const Index = () => {
   );
 
   const seatClient = useCallback(async (id: string) => {
-  try {
-    await updateClientRow(id, {
-      status: "seated",
-    });
+    try {
+      await updateClientRow(id, {
+        status: "seated",
+        seatedTime: Date.now(),
+        archivedAt: null,
+      });
 
-    toast.success("Cliente acomodado!");
-  } catch (err) {
-    toast.error(
-      err instanceof Error
-        ? err.message
-        : "Erro ao acomodar cliente."
-    );
-  }
-}, []);
-  
-    const removeClient = useCallback(
+      toast.success("Cliente acomodado!");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Erro ao acomodar cliente."
+      );
+    }
+  }, []);
+
+  const returnClientToQueue = useCallback(async (id: string) => {
+    try {
+      await updateClientRow(id, {
+        status: "waiting",
+        seatedTime: null,
+        archivedAt: null,
+      });
+
+      toast.success("Cliente voltou para a fila");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Erro ao voltar cliente para fila."
+      );
+    }
+  }, []);
+
+  const clearSeatedClients = useCallback(async () => {
+    try {
+      await archiveSeatedClients();
+      toast.success("Atendidos enviados para o histórico");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Erro ao limpar atendidos."
+      );
+    }
+  }, []);
+
+  const removeClient = useCallback(
     async (id: string) => {
       const client = queue.find((c) => c.id === id);
       if (!client) return;
@@ -141,31 +176,58 @@ const Index = () => {
     []
   );
 
+  const handleLogout = () => {
+    localStorage.removeItem("queue-authenticated");
+    setAuthenticated(false);
+    setQueue([]);
+    setLoading(true);
+    setLoadError(null);
+  };
+
+  if (!authenticated) {
+    return <Login onLogin={() => setAuthenticated(true)} />;
+  }
+
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-      {/* Header */}
-      <header className="flex items-center justify-between px-8 py-5 border-b border-border bg-card shadow-lg">
-        <div className="flex items-center gap-4">
-          <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center">
-            <Pizza className="w-6 h-6 text-primary" />
+      <header className="flex items-center justify-between gap-4 px-5 xl:px-8 py-4 xl:py-5 border-b border-border bg-card shadow-lg">
+        <div className="flex items-center gap-3 xl:gap-4 min-w-0">
+          <div className="w-10 h-10 xl:w-11 xl:h-11 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <Pizza className="w-5 h-5 xl:w-6 xl:h-6 text-primary" />
           </div>
-          <div>
-            <h1 className="font-display text-3xl text-foreground tracking-tight">
+
+          <div className="min-w-0">
+            <h1 className="font-display text-2xl xl:text-3xl text-foreground tracking-tight truncate">
               Grano <span className="text-primary">Pizza & Bar</span>
             </h1>
-            <p className="text-xs text-muted-foreground tracking-widest uppercase">Fila de Espera</p>
+            <p className="text-xs text-muted-foreground tracking-widest uppercase">
+              Fila de Espera
+            </p>
           </div>
         </div>
-        <span className="text-muted-foreground text-sm bg-secondary px-4 py-2 rounded-full">
-          {new Date().toLocaleDateString("pt-BR", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          })}
-        </span>
+
+        <div className="flex items-center gap-2 xl:gap-3 flex-shrink-0">
+          <span className="hidden sm:inline-flex text-muted-foreground text-sm bg-secondary px-4 py-2 rounded-full">
+            {new Date().toLocaleDateString("pt-BR", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+            })}
+          </span>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={handleLogout}
+            title="Sair"
+            className="h-10 w-10"
+          >
+            <LogOut className="w-4 h-4" />
+          </Button>
+        </div>
       </header>
 
-      {/* Main Content */}
       {loading ? (
         <div className="flex-1 flex items-center justify-center gap-2 text-muted-foreground">
           <Loader2 className="w-5 h-5 animate-spin" />
@@ -176,26 +238,33 @@ const Index = () => {
           <p className="text-destructive font-semibold">
             Não foi possível carregar a fila
           </p>
-          <p className="text-muted-foreground text-sm max-w-md">{loadError}</p>
-          <button onClick={reloadQueue} className="text-primary underline text-sm">
+
+          <p className="text-muted-foreground text-sm max-w-md">
+            {loadError}
+          </p>
+
+          <button
+            onClick={reloadQueue}
+            className="text-primary underline text-sm"
+          >
             Tentar novamente
           </button>
         </div>
       ) : (
         <div className="flex-1 flex overflow-hidden">
-          {/* Left - Form */}
-          <div className="w-[400px] flex-shrink-0 border-r border-border p-7 overflow-y-auto bg-card/50">
+          <div className="w-[340px] xl:w-[400px] flex-shrink-0 border-r border-border p-5 xl:p-7 overflow-y-auto bg-card/50">
             <QueueForm onAdd={addClient} queue={queue} />
           </div>
 
-          {/* Right - Queue */}
-          <div className="flex-1 p-7 overflow-hidden">
+          <div className="flex-1 p-5 xl:p-7 overflow-hidden">
             <QueueList
               queue={queue}
               onCall={callClient}
               onSeat={seatClient}
               onRemove={removeClient}
               onUpdate={updateClient}
+              onReturnToQueue={returnClientToQueue}
+              onClearSeated={clearSeatedClients}
             />
           </div>
         </div>

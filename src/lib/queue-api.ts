@@ -6,11 +6,13 @@ import { QueueClient, ClientStatus } from "@/lib/queue-store";
  * Usa snake_case porque é a convenção do Postgres.
  */
 interface QueueClientRow {
-  id: string;
+   id: string;
   name: string;
   phone: string;
   party_size: number;
-  arrival_time: string; // timestamptz vem como string ISO
+  arrival_time: string;
+  seated_time: string | null;
+  archived_at: string | null;
   notes: string | null;
   status: ClientStatus;
 }
@@ -23,6 +25,8 @@ function rowToClient(row: QueueClientRow): QueueClient {
     phone: row.phone,
     partySize: row.party_size,
     arrivalTime: new Date(row.arrival_time).getTime(),
+    seatedTime: row.seated_time ? new Date(row.seated_time).getTime() : null,
+    archivedAt: row.archived_at ? new Date(row.archived_at).getTime() : null,
     notes: row.notes ?? "",
     status: row.status,
   };
@@ -75,10 +79,22 @@ export async function updateClientRow(
   const payload: Record<string, unknown> = {};
 
   if (updatedData.name !== undefined) payload.name = updatedData.name;
-  if (updatedData.phone !== undefined) payload.phone = updatedData.phone;
-  if (updatedData.partySize !== undefined) payload.party_size = updatedData.partySize;
-  if (updatedData.notes !== undefined) payload.notes = updatedData.notes;
-  if (updatedData.status !== undefined) payload.status = updatedData.status;
+if (updatedData.phone !== undefined) payload.phone = updatedData.phone;
+if (updatedData.partySize !== undefined) payload.party_size = updatedData.partySize;
+if (updatedData.notes !== undefined) payload.notes = updatedData.notes;
+if (updatedData.status !== undefined) payload.status = updatedData.status;
+
+if (updatedData.seatedTime !== undefined) {
+  payload.seated_time = updatedData.seatedTime
+    ? new Date(updatedData.seatedTime).toISOString()
+    : null;
+}
+
+if (updatedData.archivedAt !== undefined) {
+  payload.archived_at = updatedData.archivedAt
+    ? new Date(updatedData.archivedAt).toISOString()
+    : null;
+}
 
   const { error } = await supabase
     .from("queue_clients")
@@ -140,4 +156,17 @@ export function subscribeToQueue(callback: () => void): () => void {
   return () => {
     supabase.removeChannel(channel);
   };
+}
+export async function archiveSeatedClients(): Promise<void> {
+  const { error } = await supabase
+    .from("queue_clients")
+    .update({
+      archived_at: new Date().toISOString(),
+    })
+    .eq("status", "seated")
+    .is("archived_at", null);
+
+  if (error) {
+    throw new Error(`Erro ao limpar atendidos: ${error.message}`);
+  }
 }

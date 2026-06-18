@@ -6,6 +6,8 @@ export interface QueueClient {
   phone: string;
   partySize: number;
   arrivalTime: number;
+  seatedTime?: number | null;
+  archivedAt?: number | null;
   notes: string;
   status: ClientStatus;
 }
