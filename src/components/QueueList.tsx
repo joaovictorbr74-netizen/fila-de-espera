@@ -27,7 +27,9 @@ export default function QueueList({
     (sum, c) => sum + c.partySize,
     0
   );
-
+  const seatedClients = queue.filter(
+  (c) => c.status === "seated"
+);
   const longestWaitMinutes = activeQueue.reduce((max, c) => {
     const minutes = Math.floor((Date.now() - c.arrivalTime) / 60000);
     return Math.max(max, minutes);
@@ -57,6 +59,9 @@ export default function QueueList({
 
           <span>• {totalPeople} {totalPeople === 1 ? "pessoa" : "pessoas"}</span>
 
+          <span>
+          • {seatedClients.length} atendidos
+          </span>
           {activeQueue.length > 0 && (
             <span className="flex items-center gap-1.5">
               <Clock className="w-4 h-4" />
@@ -74,38 +79,74 @@ export default function QueueList({
         />
       </div>
 
-      {filteredQueue.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-center gap-2">
-          {search ? (
-            <p className="text-muted-foreground text-xl">Nenhum cliente encontrado</p>
-          ) : (
-            <>
-              <PartyPopper className="w-10 h-10 text-primary mb-1" />
-              <p className="text-foreground text-xl font-semibold">
-                Nenhum cliente aguardando
-              </p>
-              <p className="text-muted-foreground text-base">
-                A fila está vazia no momento.
-              </p>
-            </>
-          )}
-        </div>
+      <>
+  {filteredQueue.length === 0 ? (
+    <div className="flex-1 flex flex-col items-center justify-center text-center gap-2">
+      {search ? (
+        <p className="text-muted-foreground text-xl">
+          Nenhum cliente encontrado
+        </p>
       ) : (
-        <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-          {filteredQueue.map((client, index) => (
-            <QueueCard
-              key={client.id}
-              client={client}
-              position={index + 1}
-              queue={queue}
-              onCall={onCall}
-              onSeat={onSeat}
-              onRemove={onRemove}
-              onUpdate={onUpdate} 
-            />
-          ))} 
-        </div>
+        <>
+          <PartyPopper className="w-10 h-10 text-primary mb-1" />
+          <p className="text-foreground text-xl font-semibold">
+            Nenhum cliente aguardando
+          </p>
+          <p className="text-muted-foreground text-base">
+            A fila está vazia no momento.
+          </p>
+        </>
       )}
     </div>
-  );  
+  ) : (
+    <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+      {filteredQueue.map((client, index) => (
+        <QueueCard
+          key={client.id}
+          client={client}
+          position={index + 1}
+          queue={queue}
+          onCall={onCall}
+          onSeat={onSeat}
+          onRemove={onRemove}
+          onUpdate={onUpdate}
+        />
+      ))}
+    </div>
+  )}
+
+  {seatedClients.length > 0 && (
+    <div className="mt-6 border-t pt-4">
+      <h3 className="text-lg font-semibold mb-3 text-muted-foreground">
+        Clientes Atendidos ({seatedClients.length})
+      </h3>
+
+      <div className="space-y-2 max-h-56 overflow-y-auto">
+        {seatedClients
+          .slice()
+          .reverse()
+          .map((client) => (
+            <div
+              key={client.id}
+              className="flex items-center justify-between rounded-lg border p-3 bg-muted/30"
+            >
+              <div>
+                <p className="font-medium">
+                  {client.name}
+                </p>
+
+                <p className="text-sm text-muted-foreground">
+                  {client.partySize} pessoa(s)
+                </p>
+              </div>
+
+              <span className="text-sm text-green-600 font-medium">
+                ✓ Atendido
+              </span>
+            </div>
+          ))}
+      </div>
+    </div>
+  )}
+</>   </div>);
 }

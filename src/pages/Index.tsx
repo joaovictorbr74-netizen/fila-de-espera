@@ -75,17 +75,22 @@ const Index = () => {
   );
 
   const seatClient = useCallback(async (id: string) => {
-    try {
-      await deleteClientRow(id);
-      toast.success("Cliente acomodado!");
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Erro ao acomodar cliente."
-      );
-    }
-  }, []);
+  try {
+    await updateClientRow(id, {
+      status: "seated",
+    });
 
-  const removeClient = useCallback(
+    toast.success("Cliente acomodado!");
+  } catch (err) {
+    toast.error(
+      err instanceof Error
+        ? err.message
+        : "Erro ao acomodar cliente."
+    );
+  }
+}, []);
+  
+    const removeClient = useCallback(
     async (id: string) => {
       const client = queue.find((c) => c.id === id);
       if (!client) return;

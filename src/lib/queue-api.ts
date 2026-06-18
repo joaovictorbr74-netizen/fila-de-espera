@@ -32,8 +32,9 @@ function rowToClient(row: QueueClientRow): QueueClient {
 export async function fetchQueue(): Promise<QueueClient[]> {
   const { data, error } = await supabase
     .from("queue_clients")
-    .select("*")
-    .order("arrival_time", { ascending: true });
+    .select("*");
+
+  console.log("ERROR:", JSON.stringify(error, null, 2));
 
   if (error) {
     throw new Error(`Erro ao buscar a fila: ${error.message}`);
