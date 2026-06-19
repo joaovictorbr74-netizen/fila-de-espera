@@ -61,8 +61,12 @@ export function findDuplicatePhone(
   excludeId?: string
 ): QueueClient | undefined {
   const digits = onlyDigits(phone);
+
   return queue.find(
-    (c) => c.id !== excludeId && onlyDigits(c.phone) === digits
+    (c) =>
+      c.id !== excludeId &&
+      c.status !== "seated" &&
+      onlyDigits(c.phone) === digits
   );
 }
 

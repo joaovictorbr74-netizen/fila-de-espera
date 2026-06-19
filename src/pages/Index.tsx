@@ -125,6 +125,24 @@ const Index = () => {
     }
   }, []);
 
+  const clearHistory = useCallback(async () => {
+    const historyClients = queue.filter(
+      (client) => client.status === "seated" && client.archivedAt
+    );
+
+    try {
+      await Promise.all(
+        historyClients.map((client) => deleteClientRow(client.id))
+      );
+
+      toast.success("Histórico apagado com sucesso");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Erro ao apagar histórico."
+      );
+    }
+  }, [queue]);
+
   const removeClient = useCallback(
     async (id: string) => {
       const client = queue.find((c) => c.id === id);
@@ -253,7 +271,10 @@ const Index = () => {
       ) : (
         <div className="flex-1 flex overflow-hidden">
           <div className="w-[340px] xl:w-[400px] flex-shrink-0 border-r border-border p-5 xl:p-7 overflow-y-auto bg-card/50">
-            <QueueForm onAdd={addClient} queue={queue} />
+            <QueueForm
+              onAdd={addClient}
+              queue={queue.filter((client) => !client.archivedAt)}
+            />
           </div>
 
           <div className="flex-1 p-5 xl:p-7 overflow-hidden">
@@ -265,6 +286,7 @@ const Index = () => {
               onUpdate={updateClient}
               onReturnToQueue={returnClientToQueue}
               onClearSeated={clearSeatedClients}
+              onClearHistory={clearHistory}
             />
           </div>
         </div>

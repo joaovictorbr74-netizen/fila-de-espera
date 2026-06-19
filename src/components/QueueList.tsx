@@ -12,6 +12,17 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface QueueListProps {
   queue: QueueClient[];
@@ -21,6 +32,7 @@ interface QueueListProps {
   onUpdate: (id: string, updatedData: Partial<QueueClient>) => void;
   onReturnToQueue: (id: string) => void;
   onClearSeated: () => void;
+  onClearHistory: () => void;
 }
 
 export default function QueueList({
@@ -31,6 +43,7 @@ export default function QueueList({
   onUpdate,
   onReturnToQueue,
   onClearSeated,
+  onClearHistory,
 }: QueueListProps) {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<"waiting" | "seated" | "history">(
@@ -172,10 +185,47 @@ export default function QueueList({
           )}
 
           {activeTab === "history" && (
-            <span className="flex items-center gap-1.5">
-              <History className="w-5 h-5" />
-              {historyClients.length} no histórico
-            </span>
+            <>
+              <span className="flex items-center gap-1.5">
+                <History className="w-5 h-5" />
+                {historyClients.length} no histórico
+              </span>
+
+              {historyClients.length > 0 && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-9"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Limpar histórico
+                    </Button>
+                  </AlertDialogTrigger>
+
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Limpar histórico?</AlertDialogTitle>
+
+                      <AlertDialogDescription>
+                        Essa ação vai apagar definitivamente todos os clientes do
+                        histórico. A fila atual e os atendidos ainda não
+                        arquivados não serão afetados.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+
+                      <AlertDialogAction onClick={onClearHistory}>
+                        Apagar histórico
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </>
           )}
         </div>
       </div>
