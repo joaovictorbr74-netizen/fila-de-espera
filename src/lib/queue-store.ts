@@ -71,6 +71,17 @@ export function findDuplicatePhone(
 }
 
 /** Monta a mensagem padrão enviada via WhatsApp ao chamar o cliente. */
-export function buildCallMessage(clientName: string, restaurantName: string): string {
-  return `Olá ${clientName}! 😊\n\nSua mesa na ${restaurantName} está pronta.\n\nPor favor, dirija-se à recepção.\n\nAguardamos você! 🍕`;
+export function buildCallMessage(
+  clientName: string,
+  restaurantName: string
+): string {
+  return [
+    `Olá, ${clientName}!`,
+    "",
+    `Sua mesa na ${restaurantName} está pronta.`,
+    "",
+    "Por favor, dirija-se à recepção para ser acomodado.",
+    "",
+    "Aguardamos você!",
+  ].join("\n");
 }
