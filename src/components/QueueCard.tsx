@@ -73,6 +73,16 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
   const [openEdit, setOpenEdit] = useState(false);
   const [openCall, setOpenCall] = useState(false);
 
+  // Recarrega os campos com os dados atuais do cliente sempre que a edição
+  // é aberta, para não sobrescrever mudanças feitas em outro aparelho.
+  const openEditDialog = () => {
+    setEditName(client.name);
+    setEditPhone(client.phone);
+    setEditPartySize(client.partySize);
+    setEditNotes(client.notes);
+    setOpenEdit(true);
+  };
+
   useEffect(() => {
     const interval = setInterval(() => {
       setWaitTime(getWaitingTime(client.arrivalTime));
@@ -251,7 +261,7 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
 
       <DropdownMenuContent align="end">
         <DropdownMenuItem
-          onClick={() => setOpenEdit(true)}
+          onClick={openEditDialog}
         >
           Editar Cliente
         </DropdownMenuItem>
