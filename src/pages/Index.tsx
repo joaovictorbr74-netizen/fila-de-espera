@@ -70,8 +70,8 @@ const Index = () => {
       try {
         await updateClientRow(id, { status: "called" });
 
-        toast("Mensagem enviada!", {
-          description: `"Sua mesa está pronta" → ${client?.name}`,
+        toast("Cliente chamado!", {
+          description: `WhatsApp aberto para ${client?.name}`,
         });
       } catch (err) {
         toast.error(
