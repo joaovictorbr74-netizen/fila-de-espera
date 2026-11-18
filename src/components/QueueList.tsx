@@ -106,15 +106,21 @@ export default function QueueList({
     return Math.max(0, Math.floor((endTime - client.arrivalTime) / 60000));
   };
 
+  const tabClass = (active: boolean) =>
+    active
+      ? "h-10 px-4 rounded-full text-sm font-bold bg-foreground text-background hover:bg-foreground/90 hover:text-background"
+      : "h-10 px-4 rounded-full text-sm font-semibold text-muted-foreground hover:text-foreground"
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1 flex-wrap rounded-full border border-border bg-card/60 p-1">
           <Button
             type="button"
-            variant={activeTab === "waiting" ? "default" : "ghost"}
+            variant="ghost"
             onClick={() => setActiveTab("waiting")}
-            className="h-11 px-4 text-base"
+            aria-pressed={activeTab === "waiting"}
+            className={tabClass(activeTab === "waiting")}
           >
             <Users className="w-4 h-4" />
             Fila de Espera
@@ -122,9 +128,10 @@ export default function QueueList({
 
           <Button
             type="button"
-            variant={activeTab === "seated" ? "default" : "ghost"}
+            variant="ghost"
             onClick={() => setActiveTab("seated")}
-            className="h-11 px-4 text-base"
+            aria-pressed={activeTab === "seated"}
+            className={tabClass(activeTab === "seated")}
           >
             <CheckCircle2 className="w-4 h-4" />
             Atendidos
@@ -132,9 +139,10 @@ export default function QueueList({
 
           <Button
             type="button"
-            variant={activeTab === "history" ? "default" : "ghost"}
+            variant="ghost"
             onClick={() => setActiveTab("history")}
-            className="h-11 px-4 text-base"
+            aria-pressed={activeTab === "history"}
+            className={tabClass(activeTab === "history")}
           >
             <History className="w-4 h-4" />
             Histórico
@@ -235,7 +243,7 @@ export default function QueueList({
           placeholder="Buscar por nome ou telefone..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="h-11 text-base"
+          className="h-11 text-base rounded-full px-5 bg-card/60"
         />
       </div>
 
@@ -298,7 +306,7 @@ export default function QueueList({
                 .map((client) => (
                   <div
                     key={client.id}
-                    className="flex items-center justify-between gap-4 rounded-lg border border-border p-4 bg-card"
+                    className="flex items-center justify-between gap-4 rounded-2xl border border-border p-5 bg-card/80"
                   >
                     <div className="min-w-0">
                       <p className="font-semibold text-foreground">
@@ -370,7 +378,7 @@ export default function QueueList({
                 .map((client) => (
                   <div
                     key={client.id}
-                    className="flex items-center justify-between gap-4 rounded-lg border border-border p-4 bg-card/70"
+                    className="flex items-center justify-between gap-4 rounded-2xl border border-border p-5 bg-card/50"
                   >
                     <div className="min-w-0">
                       <p className="font-semibold text-foreground">

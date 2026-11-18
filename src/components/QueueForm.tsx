@@ -76,8 +76,16 @@ export default function QueueForm({ onAdd, queue }: QueueFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5 h-full">
-      <h2 className="font-display text-2xl text-primary">Novo Cliente</h2>
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-5 rounded-2xl border border-border bg-card/70 p-6 xl:p-7"
+    >
+      <div className="flex flex-col gap-1.5">
+        <span className="eyebrow">Novo cliente</span>
+        <h2 className="font-display text-3xl font-medium leading-tight text-foreground">
+          Sua noite começa aqui
+        </h2>
+      </div>
 
       <div className="space-y-2">
         <Label className="text-base text-foreground flex items-center gap-2">
@@ -110,22 +118,28 @@ export default function QueueForm({ onAdd, queue }: QueueFormProps) {
         <Label className="text-base text-foreground flex items-center gap-2">
           <Users className="w-4 h-4 text-muted-foreground" /> Pessoas
         </Label>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary p-1.5">
           <Button
             type="button"
             variant="outline"
-            className="h-14 w-14 text-2xl border-border"
+            aria-label="Diminuir pessoas"
+            className="h-14 w-14 text-2xl border-border bg-transparent"
             onClick={() => setPartySize(Math.max(1, partySize - 1))}
           >
             −
           </Button>
-          <span className="text-3xl font-bold w-12 text-center text-foreground">
-            {partySize}
-          </span>
+          <div className="flex flex-col items-center leading-none">
+            <span className="font-display text-4xl font-semibold text-foreground">
+              {partySize}
+            </span>
+            <span className="text-xs text-muted-foreground mt-1">
+              {partySize === 1 ? "pessoa" : "pessoas"}
+            </span>
+          </div>
           <Button
             type="button"
-            variant="outline"
-            className="h-14 w-14 text-2xl border-border"
+            aria-label="Aumentar pessoas"
+            className="h-14 w-14 text-2xl"
             onClick={() => setPartySize(partySize + 1)}
           >
             +
@@ -148,7 +162,7 @@ export default function QueueForm({ onAdd, queue }: QueueFormProps) {
       <Button
         type="submit"
         disabled={submitting}
-        className="h-16 text-xl font-semibold mt-auto bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 disabled:opacity-70"
+        className="h-14 text-sm font-extrabold tracking-[0.2em] bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 disabled:opacity-70"
       >
         <UserPlus className="w-6 h-6 mr-2" />
         {submitting ? "ADICIONANDO..." : "ADICIONAR À FILA"}

@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { RESTAURANT_NAME } from "@/lib/config";
 
 import {
   AlertDialog,
@@ -121,7 +122,7 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
     }
 
     const mensagem = encodeURIComponent(
-      buildCallMessage(client.name, "Grano Pizza & Bar")
+      buildCallMessage(client.name, RESTAURANT_NAME)
     );
 
     const url = `https://wa.me/55${telefone}?text=${mensagem}`;
@@ -134,14 +135,18 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
 
   return (
     <div
-      className={`bg-card border rounded-2xl p-5 flex items-center gap-4 transition-all shadow-md hover:shadow-lg hover:border-primary/30 ${
+      className={`border rounded-2xl p-5 flex items-center gap-4 transition-all ${
         client.status === "called"
-          ? "border-status-called ring-2 ring-status-called/50 bg-status-called/5"
-          : "border-border"
+          ? "border-status-called bg-gradient-to-r from-status-called/15 to-card/80 ring-4 ring-status-called/10 shadow-[0_18px_40px_-20px_hsl(var(--status-called)/0.55)]"
+          : "border-border bg-card/80 hover:border-primary/40"
       }`}
     >
       {/* Position */}
-      <div className="flex-shrink-0 w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-xl font-bold text-muted-foreground shadow-inner">
+      <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${
+        client.status === "called"
+          ? "bg-status-called text-background"
+          : "border border-border text-muted-foreground"
+      }`}>
         {position}
       </div>
 
@@ -150,7 +155,7 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
         <div className="flex items-center gap-2 mb-1">
           <span className="text-lg font-semibold text-foreground truncate">{client.name}</span>
           {client.status === "called" && (
-            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase bg-status-called text-background animate-pulse">
+            <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-[0.14em] bg-status-called text-background">
               <Bell className="w-3 h-3" /> Chamado
             </span>
           )}
@@ -206,6 +211,7 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
     <AlertDialog open={openCall} onOpenChange={setOpenCall}>
       <AlertDialogTrigger asChild>
         <Button
+          className="h-12 px-5 text-sm font-extrabold tracking-[0.18em]"
           onClick={() => {
             const telefone = client.phone?.replace(/\D/g, "");
             if (!telefone) {
@@ -241,7 +247,7 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
   {client.status === "called" && (
     <Button
       onClick={() => onSeat(client.id)}
-      className="h-12 px-5 text-base font-bold bg-status-seated hover:bg-status-seated/80 text-background shadow-md"
+      className="h-12 px-5 text-sm font-extrabold tracking-[0.18em] bg-foreground hover:bg-foreground/90 text-background"
     >
       <Check className="w-5 h-5 mr-1" />
       SENTOU

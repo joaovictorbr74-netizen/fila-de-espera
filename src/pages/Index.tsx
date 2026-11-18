@@ -13,7 +13,8 @@ import QueueForm from "@/components/QueueForm";
 import QueueList from "@/components/QueueList";
 import Login from "@/pages/Login";
 import { toast } from "sonner";
-import { Pizza, Loader2, LogOut } from "lucide-react";
+import { Loader2, LogOut } from "lucide-react";
+import BambooLogo from "@/components/BambooLogo";
 import { Button } from "@/components/ui/button";
 
 const Index = () => {
@@ -207,25 +208,14 @@ const Index = () => {
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
-      <header className="flex items-center justify-between gap-4 px-5 xl:px-8 py-4 xl:py-5 border-b border-border bg-card shadow-lg">
-        <div className="flex items-center gap-3 xl:gap-4 min-w-0">
-          <div className="w-10 h-10 xl:w-11 xl:h-11 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <Pizza className="w-5 h-5 xl:w-6 xl:h-6 text-primary" />
-          </div>
-
-          <div className="min-w-0">
-            <h1 className="font-display text-2xl xl:text-3xl text-foreground tracking-tight truncate">
-              Grano <span className="text-primary">Pizza & Bar</span>
-            </h1>
-            <p className="text-xs text-muted-foreground tracking-widest uppercase">
-              Fila de Espera
-            </p>
-          </div>
-        </div>
+    <div className="h-screen flex flex-col overflow-hidden bg-bamboo">
+      <header className="flex items-center justify-between gap-4 px-5 xl:px-10 py-4 xl:py-5 border-b border-border">
+        <h1 className="min-w-0">
+          <BambooLogo subtitle="Fila de espera" />
+        </h1>
 
         <div className="flex items-center gap-2 xl:gap-3 flex-shrink-0">
-          <span className="hidden sm:inline-flex text-muted-foreground text-sm bg-secondary px-4 py-2 rounded-full">
+          <span className="hidden sm:inline-flex text-muted-foreground text-sm border border-border px-4 py-2 rounded-full">
             {new Date().toLocaleDateString("pt-BR", {
               weekday: "long",
               day: "numeric",
@@ -239,7 +229,8 @@ const Index = () => {
             size="icon"
             onClick={handleLogout}
             title="Sair"
-            className="h-10 w-10"
+            aria-label="Sair"
+            className="h-11 w-11 rounded-full border border-border text-muted-foreground"
           >
             <LogOut className="w-4 h-4" />
           </Button>
@@ -270,7 +261,7 @@ const Index = () => {
         </div>
       ) : (
         <div className="flex-1 flex overflow-hidden">
-          <div className="w-[340px] xl:w-[400px] flex-shrink-0 border-r border-border p-5 xl:p-7 overflow-y-auto bg-card/50">
+          <div className="w-[340px] xl:w-[400px] flex-shrink-0 p-5 xl:p-7 overflow-y-auto">
             <QueueForm
               onAdd={addClient}
               queue={queue.filter((client) => !client.archivedAt)}

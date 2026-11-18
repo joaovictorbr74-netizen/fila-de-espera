@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Pizza, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
+import BambooLogo from "@/components/BambooLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -31,22 +32,18 @@ export default function Login({ onLogin }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
+    <div className="min-h-screen bg-bamboo text-foreground flex items-center justify-center p-6">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-lg border border-border bg-card p-6 shadow-lg"
+        className="w-full max-w-sm rounded-2xl border border-border bg-card/80 p-8 shadow-2xl"
       >
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-            <Pizza className="w-7 h-7 text-primary" />
-          </div>
-
-          <h1 className="font-display text-3xl text-foreground">
-            Grano <span className="text-primary">Pizza & Bar</span>
+          <h1>
+            <BambooLogo subtitle="Fila de espera" size="lg" />
           </h1>
 
-          <p className="text-sm text-muted-foreground mt-1">
-            Acesso à fila de espera
+          <p className="text-sm text-muted-foreground mt-4">
+            Acesso da recepção
           </p>
         </div>
 
@@ -64,8 +61,8 @@ export default function Login({ onLogin }: LoginProps) {
             />
           </div>
 
-          <Button type="submit" className="w-full h-12 text-base font-semibold">
-            Entrar
+          <Button type="submit" className="w-full h-12 text-sm font-extrabold tracking-[0.2em]">
+            ENTRAR
           </Button>
         </div>
       </form>
