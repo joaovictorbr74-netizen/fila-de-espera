@@ -124,6 +124,12 @@ export async function restoreClient(client: QueueClient): Promise<QueueClient> {
       phone: client.phone,
       party_size: client.partySize,
       arrival_time: new Date(client.arrivalTime).toISOString(),
+      seated_time: client.seatedTime
+        ? new Date(client.seatedTime).toISOString()
+        : null,
+      archived_at: client.archivedAt
+        ? new Date(client.archivedAt).toISOString()
+        : null,
       notes: client.notes,
       status: client.status,
     })
