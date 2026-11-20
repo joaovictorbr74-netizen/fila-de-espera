@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { QueueClient, ClientStatus } from "@/lib/queue-store";
+import { QueueClient, ClientStatus, GaveUpReason } from "@/lib/queue-store";
 
 /**
  * Formato da linha como ela existe na tabela `queue_clients` do Supabase.
@@ -13,8 +13,16 @@ interface QueueClientRow {
   arrival_time: string;
   seated_time: string | null;
   archived_at: string | null;
+  feedback_sent_at: string | null;
+  gave_up_at: string | null;
+  gave_up_reason: GaveUpReason | null;
   notes: string | null;
   status: ClientStatus;
+}
+
+/** Converte um timestamp (ms) em ISO para o banco, ou null. */
+function toIso(timestamp?: number | null): string | null {
+  return timestamp ? new Date(timestamp).toISOString() : null;
 }
 
 /** Converte uma linha do banco (snake_case) para o formato usado no app (camelCase). */
@@ -27,6 +35,11 @@ function rowToClient(row: QueueClientRow): QueueClient {
     arrivalTime: new Date(row.arrival_time).getTime(),
     seatedTime: row.seated_time ? new Date(row.seated_time).getTime() : null,
     archivedAt: row.archived_at ? new Date(row.archived_at).getTime() : null,
+    feedbackSentAt: row.feedback_sent_at
+      ? new Date(row.feedback_sent_at).getTime()
+      : null,
+    gaveUpAt: row.gave_up_at ? new Date(row.gave_up_at).getTime() : null,
+    gaveUpReason: row.gave_up_reason,
     notes: row.notes ?? "",
     status: row.status,
   };
@@ -95,6 +108,18 @@ if (updatedData.archivedAt !== undefined) {
     : null;
 }
 
+if (updatedData.feedbackSentAt !== undefined) {
+  payload.feedback_sent_at = toIso(updatedData.feedbackSentAt);
+}
+
+if (updatedData.gaveUpAt !== undefined) {
+  payload.gave_up_at = toIso(updatedData.gaveUpAt);
+}
+
+if (updatedData.gaveUpReason !== undefined) {
+  payload.gave_up_reason = updatedData.gaveUpReason;
+}
+
   const { error } = await supabase
     .from("queue_clients")
     .update(payload)
@@ -127,9 +152,10 @@ export async function restoreClient(client: QueueClient): Promise<QueueClient> {
       seated_time: client.seatedTime
         ? new Date(client.seatedTime).toISOString()
         : null,
-      archived_at: client.archivedAt
-        ? new Date(client.archivedAt).toISOString()
-        : null,
+      archived_at: toIso(client.archivedAt),
+      feedback_sent_at: toIso(client.feedbackSentAt),
+      gave_up_at: toIso(client.gaveUpAt),
+      gave_up_reason: client.gaveUpReason ?? null,
       notes: client.notes,
       status: client.status,
     })
@@ -168,7 +194,7 @@ export async function archiveSeatedClients(): Promise<void> {
     .update({
       archived_at: new Date().toISOString(),
     })
-    .eq("status", "seated")
+    .in("status", ["seated", "gave_up"])
     .is("archived_at", null);
 
   if (error) {

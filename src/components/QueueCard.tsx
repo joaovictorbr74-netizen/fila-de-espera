@@ -5,10 +5,9 @@ import {
   maskPhone,
   isValidPhone,
   findDuplicatePhone,
-  buildCallMessage,
-} from "@/lib/queue-store";
+  buildCallMessage, GaveUpReason } from "@/lib/queue-store";
 import { Button } from "@/components/ui/button";
-import { Clock, Users, X, Bell, Check, MessageSquare, MoreVertical, Phone, Copy } from "lucide-react";
+import { Clock, Users, X, Bell, Check, MessageSquare, MoreVertical, Phone, Copy, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,6 +41,7 @@ interface QueueCardProps {
   onSeat: (id: string) => void;
   onRemove: (id: string) => void;
   onUpdate: (id: string, updatedData: Partial<QueueClient>) => void;
+  onGiveUp: (id: string, reason: GaveUpReason) => void;
 }
 
 
@@ -61,9 +61,14 @@ const statusConfig = {
     className: "bg-status-seated/20 text-status-seated border-status-seated/30",
     dot: "bg-status-seated",
   },
+  gave_up: {
+    label: "Desistiu",
+    className: "bg-destructive/20 text-destructive border-destructive/30",
+    dot: "bg-destructive",
+  },
 };
 
-export default function QueueCard({ client, position, queue, onCall, onSeat, onRemove, onUpdate }: QueueCardProps) {
+export default function QueueCard({ client, position, queue, onCall, onSeat, onRemove, onUpdate, onGiveUp }: QueueCardProps) {
   const [waitTime, setWaitTime] = useState(getWaitingTime(client.arrivalTime));
   const config = statusConfig[client.status];
 
@@ -252,6 +257,46 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
       <Check className="w-5 h-5 mr-1" />
       SENTOU
     </Button>
+  )}
+
+  {(client.status === "waiting" || client.status === "called") && (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-12 px-4 text-sm font-semibold text-muted-foreground"
+        >
+          <XCircle className="w-4 h-4 mr-1" />
+          Desistiu
+        </Button>
+      </AlertDialogTrigger>
+
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{client.name} desistiu?</AlertDialogTitle>
+          <AlertDialogDescription>
+            O cliente sai da fila e fica registrado em Atendidos › Desistências.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <AlertDialogFooter className="gap-2 sm:gap-2">
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-secondary text-foreground border border-border hover:bg-accent"
+            onClick={() => onGiveUp(client.id, "nao_apareceu")}
+          >
+            Não apareceu
+          </AlertDialogAction>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => onGiveUp(client.id, "desistiu")}
+          >
+            Desistiu
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )}
 
   <AlertDialog>

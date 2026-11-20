@@ -1,5 +1,12 @@
 import { useState, useCallback, useEffect } from "react";
-import { QueueClient } from "@/lib/queue-store";
+import {
+  QueueClient,
+  GaveUpReason,
+  GAVE_UP_LABELS,
+  buildFeedbackMessage,
+  openWhatsApp,
+} from "@/lib/queue-store";
+import { RESTAURANT_NAME, REVIEW_URL } from "@/lib/config";
 import {
   fetchQueue,
   insertClient,
@@ -117,12 +124,63 @@ const Index = () => {
         status: "waiting",
         seatedTime: null,
         archivedAt: null,
+        gaveUpAt: null,
+        gaveUpReason: null,
       });
 
       toast.success("Cliente voltou para a fila");
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Erro ao voltar cliente para fila."
+      );
+    }
+  }, []);
+
+  const giveUpClient = useCallback(
+    async (id: string, reason: GaveUpReason) => {
+      try {
+        await updateClientRow(id, {
+          status: "gave_up",
+          gaveUpAt: Date.now(),
+          gaveUpReason: reason,
+        });
+
+        toast(`Marcado como "${GAVE_UP_LABELS[reason]}"`, {
+          description: "Ficou registrado em Atendidos › Desistências",
+        });
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Erro ao registrar desistência."
+        );
+      }
+    },
+    []
+  );
+
+  const requestFeedback = useCallback(async (client: QueueClient) => {
+    const opened = openWhatsApp(
+      client.phone,
+      buildFeedbackMessage(client.name, RESTAURANT_NAME, REVIEW_URL)
+    );
+
+    if (!opened) {
+      toast.error("Telefone inválido");
+      return;
+    }
+
+    try {
+      const now = Date.now();
+      await updateClientRow(client.id, {
+        feedbackSentAt: now,
+        archivedAt: now,
+      });
+
+      toast.success(`Feedback pedido para ${client.name}`, {
+        description: "Cliente movido para o Histórico",
+      });
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Erro ao registrar feedback."
       );
     }
   }, []);
@@ -140,7 +198,9 @@ const Index = () => {
 
   const clearHistory = useCallback(async () => {
     const historyClients = queue.filter(
-      (client) => client.status === "seated" && client.archivedAt
+      (client) =>
+        (client.status === "seated" || client.status === "gave_up") &&
+        client.archivedAt
     );
 
     try {
@@ -295,6 +355,8 @@ const Index = () => {
               onRemove={removeClient}
               onUpdate={updateClient}
               onReturnToQueue={returnClientToQueue}
+              onGiveUp={giveUpClient}
+              onRequestFeedback={requestFeedback}
               onClearSeated={clearSeatedClients}
               onClearHistory={clearHistory}
             />
