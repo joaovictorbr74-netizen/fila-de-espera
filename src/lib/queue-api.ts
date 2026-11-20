@@ -20,6 +20,17 @@ interface QueueClientRow {
   status: ClientStatus;
 }
 
+/**
+ * Avisos locais de mudança: toda alteração feita por este aparelho chama
+ * notifyLocalChange() para a tela recarregar na hora, sem depender só do
+ * realtime do Supabase.
+ */
+const localListeners = new Set<() => void>();
+
+function notifyLocalChange() {
+  localListeners.forEach((listener) => listener());
+}
+
 /** Converte um timestamp (ms) em ISO para o banco, ou null. */
 function toIso(timestamp?: number | null): string | null {
   return timestamp ? new Date(timestamp).toISOString() : null;
@@ -80,6 +91,7 @@ export async function insertClient(
     throw new Error(`Erro ao adicionar cliente: ${error.message}`);
   }
 
+  notifyLocalChange();
   return rowToClient(data as QueueClientRow);
 }
 
@@ -128,6 +140,8 @@ if (updatedData.gaveUpReason !== undefined) {
   if (error) {
     throw new Error(`Erro ao atualizar cliente: ${error.message}`);
   }
+
+  notifyLocalChange();
 }
 
 /** Remove um cliente da fila definitivamente. */
@@ -137,6 +151,8 @@ export async function deleteClientRow(id: string): Promise<void> {
   if (error) {
     throw new Error(`Erro ao remover cliente: ${error.message}`);
   }
+
+  notifyLocalChange();
 }
 
 /** Reinsere um cliente removido (usado pelo "Desfazer"). */
@@ -166,6 +182,7 @@ export async function restoreClient(client: QueueClient): Promise<QueueClient> {
     throw new Error(`Erro ao restaurar cliente: ${error.message}`);
   }
 
+  notifyLocalChange();
   return rowToClient(data as QueueClientRow);
 }
 
@@ -175,6 +192,14 @@ export async function restoreClient(client: QueueClient): Promise<QueueClient> {
  * cliente, o `callback` é chamado para que a tela possa se atualizar.
  */
 export function subscribeToQueue(callback: () => void): () => void {
+  localListeners.add(callback);
+
+  // O realtime precisa do token do usuário logado, senão o RLS bloqueia
+  // os eventos (a tabela não é mais pública).
+  supabase.auth.getSession().then(({ data }) => {
+    if (data.session) supabase.realtime.setAuth(data.session.access_token);
+  });
+
   const channel = supabase
     .channel("queue_clients_changes")
     .on(
@@ -185,6 +210,7 @@ export function subscribeToQueue(callback: () => void): () => void {
     .subscribe();
 
   return () => {
+    localListeners.delete(callback);
     supabase.removeChannel(channel);
   };
 }
@@ -200,4 +226,6 @@ export async function archiveSeatedClients(): Promise<void> {
   if (error) {
     throw new Error(`Erro ao limpar atendidos: ${error.message}`);
   }
+
+  notifyLocalChange();
 }
