@@ -122,13 +122,13 @@ export default function QueueList({
 
   const tabClass = (active: boolean) =>
     active
-      ? "h-10 px-4 rounded-full text-sm font-bold bg-foreground text-background hover:bg-foreground/90 hover:text-background"
-      : "h-10 px-4 rounded-full text-sm font-semibold text-muted-foreground hover:text-foreground"
+      ? "flex-1 lg:flex-none h-10 px-3 lg:px-4 rounded-full text-sm font-bold bg-foreground text-background hover:bg-foreground/90 hover:text-background"
+      : "flex-1 lg:flex-none h-10 px-3 lg:px-4 rounded-full text-sm font-semibold text-muted-foreground hover:text-foreground"
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <div className="flex items-center gap-1 flex-wrap rounded-full border border-border bg-card/60 p-1">
+        <div className="flex items-center gap-1 w-full lg:w-auto rounded-full border border-border bg-card/60 p-1">
           <Button
             type="button"
             variant="ghost"
@@ -137,7 +137,8 @@ export default function QueueList({
             className={tabClass(activeTab === "waiting")}
           >
             <Users className="w-4 h-4" />
-            Fila de Espera
+            <span className="lg:hidden">Fila</span>
+            <span className="hidden lg:inline">Fila de Espera</span>
           </Button>
 
           <Button
@@ -163,7 +164,7 @@ export default function QueueList({
           </Button>
         </div>
 
-        <div className="flex items-center gap-4 text-muted-foreground text-base flex-wrap">
+        <div className="flex items-center gap-x-4 gap-y-2 text-muted-foreground text-sm lg:text-base flex-wrap">
           {activeTab === "waiting" && (
             <>
               <span className="flex items-center gap-1.5">
@@ -290,7 +291,7 @@ export default function QueueList({
               )}
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 pb-28 lg:pb-1">
               {filteredQueue.map((client, index) => (
                 <QueueCard
                   key={client.id}
@@ -323,14 +324,14 @@ export default function QueueList({
               </p>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 pb-28 lg:pb-1">
               {filteredSeatedClients
                 .slice()
                 .reverse()
                 .map((client) => (
                   <div
                     key={client.id}
-                    className="flex items-center justify-between gap-4 rounded-2xl border border-border p-5 bg-card/80 flex-wrap"
+                    className="flex items-center justify-between gap-3 lg:gap-4 rounded-2xl border border-border p-4 lg:p-5 bg-card/80 flex-wrap"
                   >
                     <div className="flex items-center gap-4 min-w-0">
                       <span className="flex-shrink-0 w-11 h-11 rounded-full bg-status-seated/15 text-status-seated flex items-center justify-center">
@@ -360,7 +361,7 @@ export default function QueueList({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-2 flex-shrink-0 w-full lg:w-auto">
                       <Button
                         type="button"
                         variant="outline"
@@ -368,13 +369,14 @@ export default function QueueList({
                         className="h-12"
                       >
                         <RotateCcw className="w-4 h-4" />
-                        Voltar à fila
+                        <span className="lg:hidden">Voltar</span>
+                        <span className="hidden lg:inline">Voltar à fila</span>
                       </Button>
 
                       <Button
                         type="button"
                         onClick={() => onRequestFeedback(client)}
-                        className="h-12 px-5 text-sm font-extrabold tracking-[0.14em]"
+                        className="flex-1 lg:flex-none h-12 px-5 text-sm font-extrabold tracking-[0.14em]"
                       >
                         <Star className="w-4 h-4" />
                         PEDIR FEEDBACK
@@ -459,7 +461,7 @@ export default function QueueList({
               </p>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 pb-28 lg:pb-1">
               {filteredHistoryClients
                 .slice()
                 .reverse()

@@ -14,7 +14,7 @@ import { UserPlus, Users, Phone, User, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
 interface QueueFormProps {
-  onAdd: (client: Omit<QueueClient, "id">) => Promise<void> | void;
+  onAdd: (client: Omit<QueueClient, "id">) => Promise<unknown> | void;
   queue: QueueClient[]; // Adicione a prop queue para verificar o número de pessoas na fila
 }
 

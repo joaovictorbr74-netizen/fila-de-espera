@@ -7,7 +7,7 @@ import {
   findDuplicatePhone,
   buildCallMessage, GaveUpReason } from "@/lib/queue-store";
 import { Button } from "@/components/ui/button";
-import { Clock, Users, X, Bell, Check, MessageSquare, MoreVertical, Phone, Copy, XCircle } from "lucide-react";
+import { Clock, Users, X, Bell, Check, MessageSquare, MoreVertical, Phone, Copy, XCircle, MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -140,12 +140,14 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
 
   return (
     <div
-      className={`border rounded-2xl p-5 flex items-center gap-4 transition-all ${
+      className={`border rounded-2xl p-4 lg:p-5 flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-4 transition-all ${
         client.status === "called"
           ? "border-status-called bg-gradient-to-r from-status-called/15 to-card/80 ring-4 ring-status-called/10 shadow-[0_18px_40px_-20px_hsl(var(--status-called)/0.55)]"
           : "border-border bg-card/80 hover:border-primary/40"
       }`}
     >
+      {/* Posição + informações (no celular ficam em cima dos botões) */}
+      <div className="flex items-center gap-3 lg:gap-4 flex-1 min-w-0">
       {/* Position */}
       <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${
         client.status === "called"
@@ -183,7 +185,7 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
               handleCopyPhone();
             }}
             title="Clique para abrir o WhatsApp. Clique com o botão direito para copiar o telefone."
-            className="flex items-center gap-1 text-primary hover:underline font-medium"
+            className="hidden lg:flex items-center gap-1 text-primary hover:underline font-medium"
           >
             <Phone className="w-4 h-4" /> {client.phone || "Sem telefone"}
           </button>
@@ -191,7 +193,7 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
             type="button"
             onClick={handleCopyPhone}
             title="Copiar telefone"
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            className="hidden lg:block text-muted-foreground hover:text-foreground transition-colors"
           >
             <Copy className="w-3.5 h-3.5" />
           </button>
@@ -204,19 +206,41 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
         )}
       </div>
 
+      </div>
+
+      {/* Celular: telefone em botão grande (ligar) + WhatsApp */}
+      {client.phone && (
+        <div className="flex gap-2 lg:hidden">
+          <a
+            href={`tel:+55${client.phone.replace(/\D/g, "")}`}
+            className="flex-1 h-11 flex items-center gap-2 px-4 rounded-xl border border-primary/35 bg-primary/10 text-primary font-bold"
+          >
+            <Phone className="w-4 h-4" /> {client.phone}
+          </a>
+          <button
+            type="button"
+            onClick={handleOpenWhatsapp}
+            aria-label="Abrir WhatsApp"
+            className="w-11 h-11 flex items-center justify-center rounded-xl border border-status-seated/40 bg-status-seated/10 text-status-seated"
+          >
+            <MessageCircle className="w-5 h-5" />
+          </button>
+        </div>
+      )}
+
       {/* Status Badge */}
-      <div className={`px-3 py-1.5 rounded-full text-sm font-semibold border flex items-center gap-1.5 ${config.className}`}>
+      <div className={`hidden lg:flex px-3 py-1.5 rounded-full text-sm font-semibold border items-center gap-1.5 ${config.className}`}>
         <span className={`w-2 h-2 rounded-full ${config.dot}`} />
         {config.label}
       </div>
 
       {/* Actions */}
-<div className="flex items-center gap-2 flex-shrink-0">
+<div className="flex items-center gap-2 flex-shrink-0 w-full lg:w-auto">
   {client.status === "waiting" && (
     <AlertDialog open={openCall} onOpenChange={setOpenCall}>
       <AlertDialogTrigger asChild>
         <Button
-          className="h-12 px-5 text-sm font-extrabold tracking-[0.18em]"
+          className="flex-1 lg:flex-none h-[52px] lg:h-12 px-5 text-sm font-extrabold tracking-[0.18em]"
           onClick={() => {
             const telefone = client.phone?.replace(/\D/g, "");
             if (!telefone) {
@@ -252,7 +276,7 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
   {client.status === "called" && (
     <Button
       onClick={() => onSeat(client.id)}
-      className="h-12 px-5 text-sm font-extrabold tracking-[0.18em] bg-foreground hover:bg-foreground/90 text-background"
+      className="flex-1 lg:flex-none h-[52px] lg:h-12 px-5 text-sm font-extrabold tracking-[0.18em] bg-foreground hover:bg-foreground/90 text-background"
     >
       <Check className="w-5 h-5 mr-1" />
       SENTOU
@@ -265,7 +289,7 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
         <Button
           type="button"
           variant="outline"
-          className="h-12 px-4 text-sm font-semibold text-muted-foreground"
+          className="h-[52px] lg:h-12 px-4 text-sm font-semibold text-muted-foreground"
         >
           <XCircle className="w-4 h-4 mr-1" />
           Desistiu
@@ -305,6 +329,8 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
         <Button
           variant="ghost"
           size="icon"
+          aria-label="Mais opções"
+          className="h-[52px] w-12 lg:h-10 lg:w-10 border border-border lg:border-0 flex-shrink-0"
         >
           <MoreVertical className="w-4 h-4" />
         </Button>

@@ -22,7 +22,14 @@ import Login from "@/pages/Login";
 import { toast } from "sonner";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { Loader2, LogOut } from "lucide-react";
+import { Loader2, LogOut, Plus } from "lucide-react";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import BambooLogo from "@/components/BambooLogo";
 import { Button } from "@/components/ui/button";
 
@@ -30,6 +37,7 @@ const Index = () => {
   const [queue, setQueue] = useState<QueueClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [openNewClient, setOpenNewClient] = useState(false);
   // Sessão do Supabase Auth: undefined = ainda verificando, null = deslogado
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const authenticated = !!session;
@@ -70,14 +78,16 @@ const Index = () => {
   }, [authenticated, reloadQueue]);
 
   const addClient = useCallback(
-    async (client: Omit<QueueClient, "id">) => {
+    async (client: Omit<QueueClient, "id">): Promise<boolean> => {
       try {
         await insertClient(client);
         toast.success(`${client.name} adicionado à fila!`);
+        return true;
       } catch (err) {
         toast.error(
           err instanceof Error ? err.message : "Erro ao adicionar cliente."
         );
+        return false;
       }
     },
     []
@@ -288,7 +298,7 @@ const Index = () => {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-bamboo">
-      <header className="flex items-center justify-between gap-4 px-5 xl:px-10 py-4 xl:py-5 border-b border-border">
+      <header className="flex items-center justify-between gap-4 px-4 lg:px-5 xl:px-10 py-3 lg:py-4 xl:py-5 border-b border-border">
         <h1 className="min-w-0">
           <BambooLogo subtitle="Fila de espera" />
         </h1>
@@ -340,14 +350,15 @@ const Index = () => {
         </div>
       ) : (
         <div className="flex-1 flex overflow-hidden">
-          <div className="w-[340px] xl:w-[400px] flex-shrink-0 p-5 xl:p-7 overflow-y-auto">
+          {/* PC/tablet: formulário fixo à esquerda */}
+          <div className="hidden lg:block w-[340px] xl:w-[400px] flex-shrink-0 p-5 xl:p-7 overflow-y-auto">
             <QueueForm
               onAdd={addClient}
               queue={queue.filter((client) => !client.archivedAt)}
             />
           </div>
 
-          <div className="flex-1 p-5 xl:p-7 overflow-hidden">
+          <div className="flex-1 min-w-0 p-4 lg:p-5 xl:p-7 overflow-hidden">
             <QueueList
               queue={queue}
               onCall={callClient}
@@ -361,6 +372,33 @@ const Index = () => {
               onClearHistory={clearHistory}
             />
           </div>
+
+          {/* Celular: botão flutuante abre o formulário numa gaveta */}
+          <Drawer open={openNewClient} onOpenChange={setOpenNewClient}>
+            <DrawerTrigger asChild>
+              <Button
+                type="button"
+                className="lg:hidden fixed right-4 bottom-6 z-40 h-[60px] rounded-full pl-5 pr-6 text-sm font-extrabold tracking-[0.14em] shadow-[0_14px_30px_-8px_hsl(var(--primary)/0.65)]"
+              >
+                <Plus className="w-6 h-6" />
+                NOVO CLIENTE
+              </Button>
+            </DrawerTrigger>
+            <DrawerContent className="lg:hidden bg-secondary border-primary/30 max-h-[92vh]">
+              <DrawerTitle className="sr-only">Novo cliente</DrawerTitle>
+              <DrawerDescription className="sr-only">
+                Adicionar um cliente à fila de espera
+              </DrawerDescription>
+              <div className="overflow-y-auto p-4 pb-8">
+                <QueueForm
+                  onAdd={async (client) => {
+                    if (await addClient(client)) setOpenNewClient(false);
+                  }}
+                  queue={queue.filter((client) => !client.archivedAt)}
+                />
+              </div>
+            </DrawerContent>
+          </Drawer>
         </div>
       )}
     </div>
