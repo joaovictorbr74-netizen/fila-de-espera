@@ -35,6 +35,7 @@ interface QueueListProps {
   onReturnToQueue: (id: string) => void;
   onGiveUp: (id: string, reason: GaveUpReason) => void;
   onRequestFeedback: (client: QueueClient) => void;
+  onArchive: (id: string) => void;
   onClearSeated: () => void;
   onClearHistory: () => void;
 }
@@ -48,10 +49,14 @@ export default function QueueList({
   onReturnToQueue,
   onGiveUp,
   onRequestFeedback,
+  onArchive,
   onClearSeated,
   onClearHistory,
 }: QueueListProps) {
   const [search, setSearch] = useState("");
+  const [historyFilter, setHistoryFilter] = useState<
+    "todos" | "atendidos" | "desistiu" | "nao_apareceu"
+  >("todos");
   const [activeTab, setActiveTab] = useState<"waiting" | "seated" | "history">(
     "waiting"
   );
@@ -93,7 +98,34 @@ export default function QueueList({
   const filteredQueue = activeQueue.filter(searchClient);
   const filteredSeatedClients = seatedClients.filter(searchClient);
   const filteredGaveUpClients = gaveUpClients.filter(searchClient);
-  const filteredHistoryClients = historyClients.filter(searchClient);
+  const historyFilters = [
+    { key: "todos", label: "Todos", count: historyClients.length },
+    {
+      key: "atendidos",
+      label: "Atendidos",
+      count: historyClients.filter((c) => c.status === "seated").length,
+    },
+    {
+      key: "desistiu",
+      label: "Desistiu",
+      count: historyClients.filter((c) => c.gaveUpReason === "desistiu" && c.status === "gave_up").length,
+    },
+    {
+      key: "nao_apareceu",
+      label: "Não apareceu",
+      count: historyClients.filter((c) => c.gaveUpReason === "nao_apareceu" && c.status === "gave_up").length,
+    },
+  ] as const;
+
+  const matchesHistoryFilter = (client: QueueClient) => {
+    if (historyFilter === "todos") return true;
+    if (historyFilter === "atendidos") return client.status === "seated";
+    return client.status === "gave_up" && client.gaveUpReason === historyFilter;
+  };
+
+  const filteredHistoryClients = historyClients
+    .filter(searchClient)
+    .filter(matchesHistoryFilter);
 
   const formatTime = (timestamp?: number | null) => {
     if (!timestamp) return "--:--";
@@ -430,6 +462,7 @@ export default function QueueList({
                           </div>
                         </div>
 
+                        <div className="flex items-center gap-2 w-full sm:w-auto [&>button]:flex-1 sm:[&>button]:flex-none">
                         <Button
                           type="button"
                           variant="outline"
@@ -437,8 +470,22 @@ export default function QueueList({
                           className="h-11 flex-shrink-0"
                         >
                           <RotateCcw className="w-4 h-4" />
-                          Voltar à fila
+                          <span className="hidden sm:inline">Voltar à fila</span>
+                          <span className="sm:hidden">Voltar</span>
                         </Button>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => onArchive(client.id)}
+                          title="Mandar para o histórico"
+                          aria-label="Mandar para o histórico"
+                          className="h-11 flex-shrink-0"
+                        >
+                          <History className="w-4 h-4" />
+                          Histórico
+                        </Button>
+                        </div>
                       </div>
                     ))}
                 </div>
@@ -450,6 +497,34 @@ export default function QueueList({
 
       {activeTab === "history" && (
         <>
+          {historyClients.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto pb-3 -mt-1">
+              {historyFilters.map((f) => {
+                const active = historyFilter === f.key;
+                const isGaveUp = f.key === "desistiu" || f.key === "nao_apareceu";
+                return (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => setHistoryFilter(f.key)}
+                    aria-pressed={active}
+                    className={`flex-shrink-0 h-10 px-4 rounded-full border text-sm font-semibold transition-colors ${
+                      active
+                        ? isGaveUp
+                          ? "bg-destructive text-destructive-foreground border-destructive"
+                          : "bg-foreground text-background border-foreground"
+                        : isGaveUp
+                          ? "border-destructive/40 text-destructive hover:bg-destructive/10"
+                          : "border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {f.label} · {f.count}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {filteredHistoryClients.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-2">
               <History className="w-10 h-10 text-muted-foreground mb-1" />

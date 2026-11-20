@@ -195,6 +195,17 @@ const Index = () => {
     }
   }, []);
 
+  const archiveClient = useCallback(async (id: string) => {
+    try {
+      await updateClientRow(id, { archivedAt: Date.now() });
+      toast.success("Enviado para o histórico");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Erro ao enviar para o histórico."
+      );
+    }
+  }, []);
+
   const clearSeatedClients = useCallback(async () => {
     try {
       await archiveSeatedClients();
@@ -368,6 +379,7 @@ const Index = () => {
               onReturnToQueue={returnClientToQueue}
               onGiveUp={giveUpClient}
               onRequestFeedback={requestFeedback}
+              onArchive={archiveClient}
               onClearSeated={clearSeatedClients}
               onClearHistory={clearHistory}
             />
