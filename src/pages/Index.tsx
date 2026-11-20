@@ -1,5 +1,12 @@
 import { useState, useCallback, useEffect } from "react";
-import { QueueClient } from "@/lib/queue-store";
+import {
+  QueueClient,
+  GaveUpReason,
+  GAVE_UP_LABELS,
+  buildFeedbackMessage,
+  openWhatsApp,
+} from "@/lib/queue-store";
+import { RESTAURANT_NAME, REVIEW_URL } from "@/lib/config";
 import {
   fetchQueue,
   insertClient,
@@ -13,16 +20,37 @@ import QueueForm from "@/components/QueueForm";
 import QueueList from "@/components/QueueList";
 import Login from "@/pages/Login";
 import { toast } from "sonner";
-import { Pizza, Loader2, LogOut } from "lucide-react";
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
+import { Loader2, LogOut, Plus } from "lucide-react";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
+import BambooLogo from "@/components/BambooLogo";
 import { Button } from "@/components/ui/button";
 
 const Index = () => {
   const [queue, setQueue] = useState<QueueClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [authenticated, setAuthenticated] = useState(
-    localStorage.getItem("queue-authenticated") === "true"
-  );
+  const [openNewClient, setOpenNewClient] = useState(false);
+  // Sessão do Supabase Auth: undefined = ainda verificando, null = deslogado
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const authenticated = !!session;
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+
+    const { data } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+    });
+
+    return () => data.subscription.unsubscribe();
+  }, []);
 
   const reloadQueue = useCallback(async () => {
     try {
@@ -50,14 +78,16 @@ const Index = () => {
   }, [authenticated, reloadQueue]);
 
   const addClient = useCallback(
-    async (client: Omit<QueueClient, "id">) => {
+    async (client: Omit<QueueClient, "id">): Promise<boolean> => {
       try {
         await insertClient(client);
         toast.success(`${client.name} adicionado à fila!`);
+        return true;
       } catch (err) {
         toast.error(
           err instanceof Error ? err.message : "Erro ao adicionar cliente."
         );
+        return false;
       }
     },
     []
@@ -70,8 +100,8 @@ const Index = () => {
       try {
         await updateClientRow(id, { status: "called" });
 
-        toast("Mensagem enviada!", {
-          description: `"Sua mesa está pronta" → ${client?.name}`,
+        toast("Cliente chamado!", {
+          description: `WhatsApp aberto para ${client?.name}`,
         });
       } catch (err) {
         toast.error(
@@ -104,12 +134,74 @@ const Index = () => {
         status: "waiting",
         seatedTime: null,
         archivedAt: null,
+        gaveUpAt: null,
+        gaveUpReason: null,
       });
 
       toast.success("Cliente voltou para a fila");
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Erro ao voltar cliente para fila."
+      );
+    }
+  }, []);
+
+  const giveUpClient = useCallback(
+    async (id: string, reason: GaveUpReason) => {
+      try {
+        await updateClientRow(id, {
+          status: "gave_up",
+          gaveUpAt: Date.now(),
+          gaveUpReason: reason,
+        });
+
+        toast(`Marcado como "${GAVE_UP_LABELS[reason]}"`, {
+          description: "Ficou registrado em Atendidos › Desistências",
+        });
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Erro ao registrar desistência."
+        );
+      }
+    },
+    []
+  );
+
+  const requestFeedback = useCallback(async (client: QueueClient) => {
+    const opened = openWhatsApp(
+      client.phone,
+      buildFeedbackMessage(client.name, RESTAURANT_NAME, REVIEW_URL)
+    );
+
+    if (!opened) {
+      toast.error("Telefone inválido");
+      return;
+    }
+
+    try {
+      const now = Date.now();
+      await updateClientRow(client.id, {
+        feedbackSentAt: now,
+        archivedAt: now,
+      });
+
+      toast.success(`Feedback pedido para ${client.name}`, {
+        description: "Cliente movido para o Histórico",
+      });
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Erro ao registrar feedback."
+      );
+    }
+  }, []);
+
+  const archiveClient = useCallback(async (id: string) => {
+    try {
+      await updateClientRow(id, { archivedAt: Date.now() });
+      toast.success("Enviado para o histórico");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Erro ao enviar para o histórico."
       );
     }
   }, []);
@@ -127,7 +219,9 @@ const Index = () => {
 
   const clearHistory = useCallback(async () => {
     const historyClients = queue.filter(
-      (client) => client.status === "seated" && client.archivedAt
+      (client) =>
+        (client.status === "seated" || client.status === "gave_up") &&
+        client.archivedAt
     );
 
     try {
@@ -194,38 +288,34 @@ const Index = () => {
     []
   );
 
-  const handleLogout = () => {
-    localStorage.removeItem("queue-authenticated");
-    setAuthenticated(false);
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setQueue([]);
     setLoading(true);
     setLoadError(null);
   };
 
+  if (session === undefined) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-bamboo">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   if (!authenticated) {
-    return <Login onLogin={() => setAuthenticated(true)} />;
+    return <Login />;
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
-      <header className="flex items-center justify-between gap-4 px-5 xl:px-8 py-4 xl:py-5 border-b border-border bg-card shadow-lg">
-        <div className="flex items-center gap-3 xl:gap-4 min-w-0">
-          <div className="w-10 h-10 xl:w-11 xl:h-11 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <Pizza className="w-5 h-5 xl:w-6 xl:h-6 text-primary" />
-          </div>
-
-          <div className="min-w-0">
-            <h1 className="font-display text-2xl xl:text-3xl text-foreground tracking-tight truncate">
-              Grano <span className="text-primary">Pizza & Bar</span>
-            </h1>
-            <p className="text-xs text-muted-foreground tracking-widest uppercase">
-              Fila de Espera
-            </p>
-          </div>
-        </div>
+    <div className="h-screen flex flex-col overflow-hidden bg-bamboo">
+      <header className="flex items-center justify-between gap-4 px-4 lg:px-5 xl:px-10 py-3 lg:py-4 xl:py-5 border-b border-border">
+        <h1 className="min-w-0">
+          <BambooLogo subtitle="Fila de espera" />
+        </h1>
 
         <div className="flex items-center gap-2 xl:gap-3 flex-shrink-0">
-          <span className="hidden sm:inline-flex text-muted-foreground text-sm bg-secondary px-4 py-2 rounded-full">
+          <span className="hidden sm:inline-flex text-muted-foreground text-sm border border-border px-4 py-2 rounded-full">
             {new Date().toLocaleDateString("pt-BR", {
               weekday: "long",
               day: "numeric",
@@ -239,7 +329,8 @@ const Index = () => {
             size="icon"
             onClick={handleLogout}
             title="Sair"
-            className="h-10 w-10"
+            aria-label="Sair"
+            className="h-11 w-11 rounded-full border border-border text-muted-foreground"
           >
             <LogOut className="w-4 h-4" />
           </Button>
@@ -270,14 +361,15 @@ const Index = () => {
         </div>
       ) : (
         <div className="flex-1 flex overflow-hidden">
-          <div className="w-[340px] xl:w-[400px] flex-shrink-0 border-r border-border p-5 xl:p-7 overflow-y-auto bg-card/50">
+          {/* PC/tablet: formulário fixo à esquerda */}
+          <div className="hidden lg:block w-[340px] xl:w-[400px] flex-shrink-0 p-5 xl:p-7 overflow-y-auto">
             <QueueForm
               onAdd={addClient}
               queue={queue.filter((client) => !client.archivedAt)}
             />
           </div>
 
-          <div className="flex-1 p-5 xl:p-7 overflow-hidden">
+          <div className="flex-1 min-w-0 p-4 lg:p-5 xl:p-7 overflow-hidden">
             <QueueList
               queue={queue}
               onCall={callClient}
@@ -285,10 +377,40 @@ const Index = () => {
               onRemove={removeClient}
               onUpdate={updateClient}
               onReturnToQueue={returnClientToQueue}
+              onGiveUp={giveUpClient}
+              onRequestFeedback={requestFeedback}
+              onArchive={archiveClient}
               onClearSeated={clearSeatedClients}
               onClearHistory={clearHistory}
             />
           </div>
+
+          {/* Celular: botão flutuante abre o formulário numa gaveta */}
+          <Drawer open={openNewClient} onOpenChange={setOpenNewClient}>
+            <DrawerTrigger asChild>
+              <Button
+                type="button"
+                className="lg:hidden fixed right-4 bottom-6 z-40 h-[60px] rounded-full pl-5 pr-6 text-sm font-extrabold tracking-[0.14em] shadow-[0_14px_30px_-8px_hsl(var(--primary)/0.65)]"
+              >
+                <Plus className="w-6 h-6" />
+                NOVO CLIENTE
+              </Button>
+            </DrawerTrigger>
+            <DrawerContent className="lg:hidden bg-secondary border-primary/30 max-h-[92vh]">
+              <DrawerTitle className="sr-only">Novo cliente</DrawerTitle>
+              <DrawerDescription className="sr-only">
+                Adicionar um cliente à fila de espera
+              </DrawerDescription>
+              <div className="overflow-y-auto p-4 pb-8">
+                <QueueForm
+                  onAdd={async (client) => {
+                    if (await addClient(client)) setOpenNewClient(false);
+                  }}
+                  queue={queue.filter((client) => !client.archivedAt)}
+                />
+              </div>
+            </DrawerContent>
+          </Drawer>
         </div>
       )}
     </div>

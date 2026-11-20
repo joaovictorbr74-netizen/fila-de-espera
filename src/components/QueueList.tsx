@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { QueueClient } from "@/lib/queue-store";
+import { QueueClient, GaveUpReason, GAVE_UP_LABELS } from "@/lib/queue-store";
 import QueueCard from "./QueueCard";
 import {
   Users,
@@ -9,6 +9,8 @@ import {
   History,
   RotateCcw,
   Trash2,
+  Star,
+  XCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -31,6 +33,9 @@ interface QueueListProps {
   onRemove: (id: string) => void;
   onUpdate: (id: string, updatedData: Partial<QueueClient>) => void;
   onReturnToQueue: (id: string) => void;
+  onGiveUp: (id: string, reason: GaveUpReason) => void;
+  onRequestFeedback: (client: QueueClient) => void;
+  onArchive: (id: string) => void;
   onClearSeated: () => void;
   onClearHistory: () => void;
 }
@@ -42,20 +47,33 @@ export default function QueueList({
   onRemove,
   onUpdate,
   onReturnToQueue,
+  onGiveUp,
+  onRequestFeedback,
+  onArchive,
   onClearSeated,
   onClearHistory,
 }: QueueListProps) {
   const [search, setSearch] = useState("");
+  const [historyFilter, setHistoryFilter] = useState<
+    "todos" | "atendidos" | "desistiu" | "nao_apareceu"
+  >("todos");
   const [activeTab, setActiveTab] = useState<"waiting" | "seated" | "history">(
     "waiting"
   );
 
-  const activeQueue = queue.filter((client) => client.status !== "seated");
+  const activeQueue = queue.filter(
+    (client) => client.status === "waiting" || client.status === "called"
+  );
   const seatedClients = queue.filter(
     (client) => client.status === "seated" && !client.archivedAt
   );
+  const gaveUpClients = queue.filter(
+    (client) => client.status === "gave_up" && !client.archivedAt
+  );
   const historyClients = queue.filter(
-    (client) => client.status === "seated" && client.archivedAt
+    (client) =>
+      (client.status === "seated" || client.status === "gave_up") &&
+      client.archivedAt
   );
 
   const totalPeople = activeQueue.reduce(
@@ -79,7 +97,35 @@ export default function QueueList({
 
   const filteredQueue = activeQueue.filter(searchClient);
   const filteredSeatedClients = seatedClients.filter(searchClient);
-  const filteredHistoryClients = historyClients.filter(searchClient);
+  const filteredGaveUpClients = gaveUpClients.filter(searchClient);
+  const historyFilters = [
+    { key: "todos", label: "Todos", count: historyClients.length },
+    {
+      key: "atendidos",
+      label: "Atendidos",
+      count: historyClients.filter((c) => c.status === "seated").length,
+    },
+    {
+      key: "desistiu",
+      label: "Desistiu",
+      count: historyClients.filter((c) => c.gaveUpReason === "desistiu" && c.status === "gave_up").length,
+    },
+    {
+      key: "nao_apareceu",
+      label: "Não apareceu",
+      count: historyClients.filter((c) => c.gaveUpReason === "nao_apareceu" && c.status === "gave_up").length,
+    },
+  ] as const;
+
+  const matchesHistoryFilter = (client: QueueClient) => {
+    if (historyFilter === "todos") return true;
+    if (historyFilter === "atendidos") return client.status === "seated";
+    return client.status === "gave_up" && client.gaveUpReason === historyFilter;
+  };
+
+  const filteredHistoryClients = historyClients
+    .filter(searchClient)
+    .filter(matchesHistoryFilter);
 
   const formatTime = (timestamp?: number | null) => {
     if (!timestamp) return "--:--";
@@ -106,25 +152,33 @@ export default function QueueList({
     return Math.max(0, Math.floor((endTime - client.arrivalTime) / 60000));
   };
 
+  const tabClass = (active: boolean) =>
+    active
+      ? "flex-1 lg:flex-none h-10 px-3 lg:px-4 rounded-full text-sm font-bold bg-foreground text-background hover:bg-foreground/90 hover:text-background"
+      : "flex-1 lg:flex-none h-10 px-3 lg:px-4 rounded-full text-sm font-semibold text-muted-foreground hover:text-foreground"
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1 w-full lg:w-auto rounded-full border border-border bg-card/60 p-1">
           <Button
             type="button"
-            variant={activeTab === "waiting" ? "default" : "ghost"}
+            variant="ghost"
             onClick={() => setActiveTab("waiting")}
-            className="h-11 px-4 text-base"
+            aria-pressed={activeTab === "waiting"}
+            className={tabClass(activeTab === "waiting")}
           >
             <Users className="w-4 h-4" />
-            Fila de Espera
+            <span className="lg:hidden">Fila</span>
+            <span className="hidden lg:inline">Fila de Espera</span>
           </Button>
 
           <Button
             type="button"
-            variant={activeTab === "seated" ? "default" : "ghost"}
+            variant="ghost"
             onClick={() => setActiveTab("seated")}
-            className="h-11 px-4 text-base"
+            aria-pressed={activeTab === "seated"}
+            className={tabClass(activeTab === "seated")}
           >
             <CheckCircle2 className="w-4 h-4" />
             Atendidos
@@ -132,16 +186,17 @@ export default function QueueList({
 
           <Button
             type="button"
-            variant={activeTab === "history" ? "default" : "ghost"}
+            variant="ghost"
             onClick={() => setActiveTab("history")}
-            className="h-11 px-4 text-base"
+            aria-pressed={activeTab === "history"}
+            className={tabClass(activeTab === "history")}
           >
             <History className="w-4 h-4" />
             Histórico
           </Button>
         </div>
 
-        <div className="flex items-center gap-4 text-muted-foreground text-base flex-wrap">
+        <div className="flex items-center gap-x-4 gap-y-2 text-muted-foreground text-sm lg:text-base flex-wrap">
           {activeTab === "waiting" && (
             <>
               <span className="flex items-center gap-1.5">
@@ -170,7 +225,15 @@ export default function QueueList({
                 {seatedClients.length} atendidos
               </span>
 
-              {seatedClients.length > 0 && (
+              {gaveUpClients.length > 0 && (
+                <span className="flex items-center gap-1.5 text-destructive">
+                  <XCircle className="w-4 h-4" />
+                  {gaveUpClients.length}{" "}
+                  {gaveUpClients.length === 1 ? "desistência" : "desistências"}
+                </span>
+              )}
+
+              {(seatedClients.length > 0 || gaveUpClients.length > 0) && (
                 <Button
                   type="button"
                   variant="outline"
@@ -235,7 +298,7 @@ export default function QueueList({
           placeholder="Buscar por nome ou telefone..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="h-11 text-base"
+          className="h-11 text-base rounded-full px-5 bg-card/60"
         />
       </div>
 
@@ -260,7 +323,7 @@ export default function QueueList({
               )}
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 pb-28 lg:pb-1">
               {filteredQueue.map((client, index) => (
                 <QueueCard
                   key={client.id}
@@ -271,6 +334,7 @@ export default function QueueList({
                   onSeat={onSeat}
                   onRemove={onRemove}
                   onUpdate={onUpdate}
+                  onGiveUp={onGiveUp}
                 />
               ))}
             </div>
@@ -280,7 +344,8 @@ export default function QueueList({
 
       {activeTab === "seated" && (
         <>
-          {filteredSeatedClients.length === 0 ? (
+          {filteredSeatedClients.length === 0 &&
+          filteredGaveUpClients.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-2">
               <CheckCircle2 className="w-10 h-10 text-muted-foreground mb-1" />
               <p className="text-foreground text-xl font-semibold">
@@ -291,60 +356,140 @@ export default function QueueList({
               </p>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 pb-28 lg:pb-1">
               {filteredSeatedClients
                 .slice()
                 .reverse()
                 .map((client) => (
                   <div
                     key={client.id}
-                    className="flex items-center justify-between gap-4 rounded-lg border border-border p-4 bg-card"
+                    className="flex items-center justify-between gap-3 lg:gap-4 rounded-2xl border border-border p-4 lg:p-5 bg-card/80 flex-wrap"
                   >
-                    <div className="min-w-0">
-                      <p className="font-semibold text-foreground">
-                        {client.name}
-                      </p>
+                    <div className="flex items-center gap-4 min-w-0">
+                      <span className="flex-shrink-0 w-11 h-11 rounded-full bg-status-seated/15 text-status-seated flex items-center justify-center">
+                        <CheckCircle2 className="w-5 h-5" />
+                      </span>
 
-                      <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap mt-1">
-                        <span>
-                          {client.partySize}{" "}
-                          {client.partySize === 1 ? "pessoa" : "pessoas"}
-                        </span>
-
-                        <span>• {client.phone}</span>
-
-                        <span>• Chegou às {formatTime(client.arrivalTime)}</span>
-
-                        <span>• Sentou às {formatTime(client.seatedTime)}</span>
-
-                        <span>• Esperou {getWaitMinutes(client)} min</span>
-                      </div>
-
-                      {client.notes && (
-                        <p className="mt-2 text-sm text-muted-foreground italic">
-                          Obs: {client.notes}
+                      <div className="min-w-0">
+                        <p className="font-semibold text-lg text-foreground">
+                          {client.name}
                         </p>
-                      )}
+
+                        <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap mt-1">
+                          <span>
+                            {client.partySize}{" "}
+                            {client.partySize === 1 ? "pessoa" : "pessoas"}
+                          </span>
+                          <span>• {client.phone}</span>
+                          <span>• Sentou às {formatTime(client.seatedTime)}</span>
+                          <span>• Esperou {getWaitMinutes(client)} min</span>
+                        </div>
+
+                        {client.notes && (
+                          <p className="mt-2 text-sm text-muted-foreground italic">
+                            Obs: {client.notes}
+                          </p>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-2 flex-shrink-0 w-full lg:w-auto">
                       <Button
                         type="button"
                         variant="outline"
                         onClick={() => onReturnToQueue(client.id)}
-                        className="h-10"
+                        className="h-12"
                       >
                         <RotateCcw className="w-4 h-4" />
-                        Voltar
+                        <span className="lg:hidden">Voltar</span>
+                        <span className="hidden lg:inline">Voltar à fila</span>
                       </Button>
 
-                      <span className="flex items-center gap-1.5 text-sm text-status-seated font-medium">
-                        <CheckCircle2 className="w-4 h-4" />
-                        Atendido
-                      </span>
+                      <Button
+                        type="button"
+                        onClick={() => onRequestFeedback(client)}
+                        className="flex-1 lg:flex-none h-12 px-5 text-sm font-extrabold tracking-[0.14em]"
+                      >
+                        <Star className="w-4 h-4" />
+                        PEDIR FEEDBACK
+                      </Button>
                     </div>
                   </div>
                 ))}
+
+              {filteredGaveUpClients.length > 0 && (
+                <div className="flex flex-col gap-3 pt-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] font-bold uppercase tracking-[0.28em] text-destructive">
+                      Desistências · {filteredGaveUpClients.length}
+                    </span>
+                    <span className="flex-1 h-px bg-destructive/25" />
+                  </div>
+
+                  {filteredGaveUpClients
+                    .slice()
+                    .reverse()
+                    .map((client) => (
+                      <div
+                        key={client.id}
+                        className="flex items-center justify-between gap-4 rounded-2xl border border-destructive p-4 bg-gradient-to-r from-destructive/10 to-card/80 ring-[3px] ring-destructive/10 flex-wrap"
+                      >
+                        <div className="flex items-center gap-4 min-w-0">
+                          <span className="flex-shrink-0 w-10 h-10 rounded-full bg-destructive/15 text-destructive flex items-center justify-center">
+                            <XCircle className="w-5 h-5" />
+                          </span>
+
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-semibold text-foreground">
+                                {client.name}
+                              </p>
+                              {client.gaveUpReason && (
+                                <span className="px-2.5 py-0.5 rounded-full bg-destructive text-destructive-foreground text-[11px] font-extrabold uppercase tracking-[0.12em]">
+                                  {GAVE_UP_LABELS[client.gaveUpReason]}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap mt-1">
+                              <span>
+                                {client.partySize}{" "}
+                                {client.partySize === 1 ? "pessoa" : "pessoas"}
+                              </span>
+                              <span>• Entrou {formatTime(client.arrivalTime)}</span>
+                              <span>• Saiu {formatTime(client.gaveUpAt)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 w-full sm:w-auto [&>button]:flex-1 sm:[&>button]:flex-none">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => onReturnToQueue(client.id)}
+                          className="h-11 flex-shrink-0"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                          <span className="hidden sm:inline">Voltar à fila</span>
+                          <span className="sm:hidden">Voltar</span>
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => onArchive(client.id)}
+                          title="Mandar para o histórico"
+                          aria-label="Mandar para o histórico"
+                          className="h-11 flex-shrink-0"
+                        >
+                          <History className="w-4 h-4" />
+                          Histórico
+                        </Button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
           )}
         </>
@@ -352,6 +497,34 @@ export default function QueueList({
 
       {activeTab === "history" && (
         <>
+          {historyClients.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto pb-3 -mt-1">
+              {historyFilters.map((f) => {
+                const active = historyFilter === f.key;
+                const isGaveUp = f.key === "desistiu" || f.key === "nao_apareceu";
+                return (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => setHistoryFilter(f.key)}
+                    aria-pressed={active}
+                    className={`flex-shrink-0 h-10 px-4 rounded-full border text-sm font-semibold transition-colors ${
+                      active
+                        ? isGaveUp
+                          ? "bg-destructive text-destructive-foreground border-destructive"
+                          : "bg-foreground text-background border-foreground"
+                        : isGaveUp
+                          ? "border-destructive/40 text-destructive hover:bg-destructive/10"
+                          : "border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {f.label} · {f.count}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {filteredHistoryClients.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-2">
               <History className="w-10 h-10 text-muted-foreground mb-1" />
@@ -363,14 +536,14 @@ export default function QueueList({
               </p>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 pb-28 lg:pb-1">
               {filteredHistoryClients
                 .slice()
                 .reverse()
                 .map((client) => (
                   <div
                     key={client.id}
-                    className="flex items-center justify-between gap-4 rounded-lg border border-border p-4 bg-card/70"
+                    className="flex items-center justify-between gap-4 rounded-2xl border border-border p-5 bg-card/50"
                   >
                     <div className="min-w-0">
                       <p className="font-semibold text-foreground">
@@ -389,11 +562,16 @@ export default function QueueList({
                           • Chegou em {formatDateTime(client.arrivalTime)}
                         </span>
 
-                        <span>
-                          • Sentou em {formatDateTime(client.seatedTime)}
-                        </span>
-
-                        <span>• Esperou {getWaitMinutes(client)} min</span>
+                        {client.status === "seated" ? (
+                          <>
+                            <span>
+                              • Sentou em {formatDateTime(client.seatedTime)}
+                            </span>
+                            <span>• Esperou {getWaitMinutes(client)} min</span>
+                          </>
+                        ) : (
+                          <span>• Saiu em {formatDateTime(client.gaveUpAt)}</span>
+                        )}
                       </div>
 
                       {client.notes && (
@@ -403,7 +581,18 @@ export default function QueueList({
                       )}
                     </div>
 
-                    <span className="flex-shrink-0" />
+                    <span className="flex-shrink-0">
+                      {client.status === "gave_up" && client.gaveUpReason ? (
+                        <span className="px-2.5 py-1 rounded-full border border-destructive/50 text-destructive text-xs font-bold">
+                          {GAVE_UP_LABELS[client.gaveUpReason]}
+                        </span>
+                      ) : client.feedbackSentAt ? (
+                        <span className="flex items-center gap-1.5 text-sm text-status-seated font-medium">
+                          <Star className="w-4 h-4" />
+                          Feedback pedido
+                        </span>
+                      ) : null}
+                    </span>
                   </div>
                 ))}
             </div>

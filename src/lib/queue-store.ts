@@ -1,4 +1,12 @@
-export type ClientStatus = "waiting" | "called" | "seated";
+export type ClientStatus = "waiting" | "called" | "seated" | "gave_up";
+
+/** Motivo da desistência: avisou que não vem, ou foi chamado e não apareceu. */
+export type GaveUpReason = "desistiu" | "nao_apareceu";
+
+export const GAVE_UP_LABELS: Record<GaveUpReason, string> = {
+  desistiu: "Desistiu",
+  nao_apareceu: "Não apareceu",
+};
 
 export interface QueueClient {
   id: string;
@@ -8,6 +16,9 @@ export interface QueueClient {
   arrivalTime: number;
   seatedTime?: number | null;
   archivedAt?: number | null;
+  feedbackSentAt?: number | null;
+  gaveUpAt?: number | null;
+  gaveUpReason?: GaveUpReason | null;
   notes: string;
   status: ClientStatus;
 }
@@ -65,7 +76,7 @@ export function findDuplicatePhone(
   return queue.find(
     (c) =>
       c.id !== excludeId &&
-      c.status !== "seated" &&
+      (c.status === "waiting" || c.status === "called") &&
       onlyDigits(c.phone) === digits
   );
 }
@@ -84,4 +95,41 @@ export function buildCallMessage(
     "",
     "Aguardamos você!",
   ].join("\n");
+}
+/** Abre o WhatsApp do cliente com a mensagem já escrita. */
+export function openWhatsApp(phone: string, message: string): boolean {
+  const digits = onlyDigits(phone);
+  if (!digits) return false;
+
+  const url = `https://wa.me/55${digits}?text=${encodeURIComponent(message)}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+  return true;
+}
+
+/** Mensagem de agradecimento pedindo avaliação, enviada depois que o cliente sentou. */
+export function buildFeedbackMessage(
+  clientName: string,
+  restaurantName: string,
+  reviewUrl: string
+): string {
+  const lines = [
+    `Oi, ${clientName}! 🧡`,
+    "",
+    `Ficamos muito felizes com a sua visita ao ${restaurantName} hoje. Obrigado por dividir essa noite com a gente!`,
+    "",
+  ];
+
+  if (reviewUrl) {
+    lines.push(
+      "Se puder, conta pra gente como foi a sua experiência. Leva menos de um minuto e ajuda muito o nosso trabalho:",
+      "",
+      `⭐ ${reviewUrl}`,
+      ""
+    );
+  } else {
+    lines.push("Se puder, conta pra gente como foi a sua experiência!", "");
+  }
+
+  lines.push("Esperamos você de volta em breve!", `Equipe ${restaurantName}`);
+  return lines.join("\n");
 }

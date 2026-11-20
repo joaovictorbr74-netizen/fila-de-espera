@@ -5,14 +5,14 @@ import {
   maskPhone,
   isValidPhone,
   findDuplicatePhone,
-  buildCallMessage,
-} from "@/lib/queue-store";
+  buildCallMessage, GaveUpReason } from "@/lib/queue-store";
 import { Button } from "@/components/ui/button";
-import { Clock, Users, X, Bell, Check, MessageSquare, MoreVertical, Phone, Copy } from "lucide-react";
+import { Clock, Users, X, Bell, Check, MessageSquare, MoreVertical, Phone, Copy, XCircle, MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { RESTAURANT_NAME } from "@/lib/config";
 
 import {
   AlertDialog,
@@ -41,6 +41,7 @@ interface QueueCardProps {
   onSeat: (id: string) => void;
   onRemove: (id: string) => void;
   onUpdate: (id: string, updatedData: Partial<QueueClient>) => void;
+  onGiveUp: (id: string, reason: GaveUpReason) => void;
 }
 
 
@@ -60,9 +61,14 @@ const statusConfig = {
     className: "bg-status-seated/20 text-status-seated border-status-seated/30",
     dot: "bg-status-seated",
   },
+  gave_up: {
+    label: "Desistiu",
+    className: "bg-destructive/20 text-destructive border-destructive/30",
+    dot: "bg-destructive",
+  },
 };
 
-export default function QueueCard({ client, position, queue, onCall, onSeat, onRemove, onUpdate }: QueueCardProps) {
+export default function QueueCard({ client, position, queue, onCall, onSeat, onRemove, onUpdate, onGiveUp }: QueueCardProps) {
   const [waitTime, setWaitTime] = useState(getWaitingTime(client.arrivalTime));
   const config = statusConfig[client.status];
 
@@ -72,6 +78,16 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
   const [editNotes, setEditNotes] = useState(client.notes);
   const [openEdit, setOpenEdit] = useState(false);
   const [openCall, setOpenCall] = useState(false);
+
+  // Recarrega os campos com os dados atuais do cliente sempre que a edição
+  // é aberta, para não sobrescrever mudanças feitas em outro aparelho.
+  const openEditDialog = () => {
+    setEditName(client.name);
+    setEditPhone(client.phone);
+    setEditPartySize(client.partySize);
+    setEditNotes(client.notes);
+    setOpenEdit(true);
+  };
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -111,7 +127,7 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
     }
 
     const mensagem = encodeURIComponent(
-      buildCallMessage(client.name, "Grano Pizza & Bar")
+      buildCallMessage(client.name, RESTAURANT_NAME)
     );
 
     const url = `https://wa.me/55${telefone}?text=${mensagem}`;
@@ -124,14 +140,20 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
 
   return (
     <div
-      className={`bg-card border rounded-2xl p-5 flex items-center gap-4 transition-all shadow-md hover:shadow-lg hover:border-primary/30 ${
+      className={`border rounded-2xl p-4 lg:p-5 flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-4 transition-all ${
         client.status === "called"
-          ? "border-status-called ring-2 ring-status-called/50 bg-status-called/5"
-          : "border-border"
+          ? "border-status-called bg-gradient-to-r from-status-called/15 to-card/80 ring-4 ring-status-called/10 shadow-[0_18px_40px_-20px_hsl(var(--status-called)/0.55)]"
+          : "border-border bg-card/80 hover:border-primary/40"
       }`}
     >
+      {/* Posição + informações (no celular ficam em cima dos botões) */}
+      <div className="flex items-center gap-3 lg:gap-4 flex-1 min-w-0">
       {/* Position */}
-      <div className="flex-shrink-0 w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-xl font-bold text-muted-foreground shadow-inner">
+      <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${
+        client.status === "called"
+          ? "bg-status-called text-background"
+          : "border border-border text-muted-foreground"
+      }`}>
         {position}
       </div>
 
@@ -140,7 +162,7 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
         <div className="flex items-center gap-2 mb-1">
           <span className="text-lg font-semibold text-foreground truncate">{client.name}</span>
           {client.status === "called" && (
-            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase bg-status-called text-background animate-pulse">
+            <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-[0.14em] bg-status-called text-background">
               <Bell className="w-3 h-3" /> Chamado
             </span>
           )}
@@ -163,7 +185,7 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
               handleCopyPhone();
             }}
             title="Clique para abrir o WhatsApp. Clique com o botão direito para copiar o telefone."
-            className="flex items-center gap-1 text-primary hover:underline font-medium"
+            className="hidden lg:flex items-center gap-1 text-primary hover:underline font-medium"
           >
             <Phone className="w-4 h-4" /> {client.phone || "Sem telefone"}
           </button>
@@ -171,7 +193,7 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
             type="button"
             onClick={handleCopyPhone}
             title="Copiar telefone"
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            className="hidden lg:block text-muted-foreground hover:text-foreground transition-colors"
           >
             <Copy className="w-3.5 h-3.5" />
           </button>
@@ -184,18 +206,41 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
         )}
       </div>
 
+      </div>
+
+      {/* Celular: telefone em botão grande (ligar) + WhatsApp */}
+      {client.phone && (
+        <div className="flex gap-2 lg:hidden">
+          <a
+            href={`tel:+55${client.phone.replace(/\D/g, "")}`}
+            className="flex-1 h-11 flex items-center gap-2 px-4 rounded-xl border border-primary/35 bg-primary/10 text-primary font-bold"
+          >
+            <Phone className="w-4 h-4" /> {client.phone}
+          </a>
+          <button
+            type="button"
+            onClick={handleOpenWhatsapp}
+            aria-label="Abrir WhatsApp"
+            className="w-11 h-11 flex items-center justify-center rounded-xl border border-status-seated/40 bg-status-seated/10 text-status-seated"
+          >
+            <MessageCircle className="w-5 h-5" />
+          </button>
+        </div>
+      )}
+
       {/* Status Badge */}
-      <div className={`px-3 py-1.5 rounded-full text-sm font-semibold border flex items-center gap-1.5 ${config.className}`}>
+      <div className={`hidden lg:flex px-3 py-1.5 rounded-full text-sm font-semibold border items-center gap-1.5 ${config.className}`}>
         <span className={`w-2 h-2 rounded-full ${config.dot}`} />
         {config.label}
       </div>
 
       {/* Actions */}
-<div className="flex items-center gap-2 flex-shrink-0">
+<div className="flex items-center gap-2 flex-shrink-0 w-full lg:w-auto">
   {client.status === "waiting" && (
     <AlertDialog open={openCall} onOpenChange={setOpenCall}>
       <AlertDialogTrigger asChild>
         <Button
+          className="flex-1 lg:flex-none h-[52px] lg:h-12 px-5 text-sm font-extrabold tracking-[0.18em]"
           onClick={() => {
             const telefone = client.phone?.replace(/\D/g, "");
             if (!telefone) {
@@ -231,11 +276,51 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
   {client.status === "called" && (
     <Button
       onClick={() => onSeat(client.id)}
-      className="h-12 px-5 text-base font-bold bg-status-seated hover:bg-status-seated/80 text-background shadow-md"
+      className="flex-1 lg:flex-none h-[52px] lg:h-12 px-5 text-sm font-extrabold tracking-[0.18em] bg-foreground hover:bg-foreground/90 text-background"
     >
       <Check className="w-5 h-5 mr-1" />
       SENTOU
     </Button>
+  )}
+
+  {(client.status === "waiting" || client.status === "called") && (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-[52px] lg:h-12 px-4 text-sm font-semibold text-muted-foreground"
+        >
+          <XCircle className="w-4 h-4 mr-1" />
+          Desistiu
+        </Button>
+      </AlertDialogTrigger>
+
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{client.name} desistiu?</AlertDialogTitle>
+          <AlertDialogDescription>
+            O cliente sai da fila e fica registrado em Atendidos › Desistências.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <AlertDialogFooter className="gap-2 sm:gap-2">
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-secondary text-foreground border border-border hover:bg-accent"
+            onClick={() => onGiveUp(client.id, "nao_apareceu")}
+          >
+            Não apareceu
+          </AlertDialogAction>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => onGiveUp(client.id, "desistiu")}
+          >
+            Desistiu
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )}
 
   <AlertDialog>
@@ -244,6 +329,8 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
         <Button
           variant="ghost"
           size="icon"
+          aria-label="Mais opções"
+          className="h-[52px] w-12 lg:h-10 lg:w-10 border border-border lg:border-0 flex-shrink-0"
         >
           <MoreVertical className="w-4 h-4" />
         </Button>
@@ -251,7 +338,7 @@ export default function QueueCard({ client, position, queue, onCall, onSeat, onR
 
       <DropdownMenuContent align="end">
         <DropdownMenuItem
-          onClick={() => setOpenEdit(true)}
+          onClick={openEditDialog}
         >
           Editar Cliente
         </DropdownMenuItem>
