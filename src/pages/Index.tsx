@@ -13,6 +13,8 @@ import QueueForm from "@/components/QueueForm";
 import QueueList from "@/components/QueueList";
 import Login from "@/pages/Login";
 import { toast } from "sonner";
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 import { Loader2, LogOut } from "lucide-react";
 import BambooLogo from "@/components/BambooLogo";
 import { Button } from "@/components/ui/button";
@@ -21,9 +23,19 @@ const Index = () => {
   const [queue, setQueue] = useState<QueueClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [authenticated, setAuthenticated] = useState(
-    localStorage.getItem("queue-authenticated") === "true"
-  );
+  // Sessão do Supabase Auth: undefined = ainda verificando, null = deslogado
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const authenticated = !!session;
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+
+    const { data } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+    });
+
+    return () => data.subscription.unsubscribe();
+  }, []);
 
   const reloadQueue = useCallback(async () => {
     try {
@@ -195,16 +207,23 @@ const Index = () => {
     []
   );
 
-  const handleLogout = () => {
-    localStorage.removeItem("queue-authenticated");
-    setAuthenticated(false);
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setQueue([]);
     setLoading(true);
     setLoadError(null);
   };
 
+  if (session === undefined) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-bamboo">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   if (!authenticated) {
-    return <Login onLogin={() => setAuthenticated(true)} />;
+    return <Login />;
   }
 
   return (
